@@ -5,7 +5,7 @@ public class LilypadFileGenerator {
     
     public static void main (String[] args) throws java.io.IOException{
         //prepare to read from file
-        FileReader reader = new FileReader("test.ly");
+        FileReader reader = new FileReader("test.txt");
         BufferedReader buffer = new BufferedReader(reader);
         final int MARK_LIMIT = 1000;
         String myLine;
@@ -17,7 +17,7 @@ public class LilypadFileGenerator {
         //variables to record magnitude and key on piano for every line & compare max magnitudes across adjacent samples
         Deque<Double> deque = new LinkedList<Double>();
         
-        //get data from each line in test.ly
+        //get data from each line in test.txt
         while ( (myLine = buffer.readLine()) != null) {
             if (myLine.contains("START_OF_SAMPLE")) {
                 String[] summary = myLine.split(" ");

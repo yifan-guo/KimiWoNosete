@@ -51,7 +51,7 @@ public class KimiWoNosete
         String file = StdIn.readString();                //name of file
         double[] sound = StdAudio.read(file);            //read input .wav file into a double array
         
-        FileWriter writer = new FileWriter("test.ly");
+        FileWriter writer = new FileWriter("test.txt");
         
         //-----------Here we go--------------
         for (int probe = Start; probe + N < sound.length; probe = probe + N) {
