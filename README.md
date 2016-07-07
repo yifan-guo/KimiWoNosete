@@ -10,7 +10,7 @@ Download can be found here: http://lilypond.org/
 3. compile "javac KimiWoNosete.java"<br/>
 4. run "java KimiWoNosete [SAMPLE_SIZE] [STARTING_POINT]"  <br/>
     *[SAMPLE_SIZE] is an integer that represents the number of data points analyzed per sample (each sample computes the prominent frequencies)<br/>
-    *[STARTING_POINT] is an integer that represents where in the sound file the program should start analyzing (i.e. computing samples)
+    *[STARTING_POINT] is an integer that represents where in the sound file the program should start analyzing (i.e. computing samples)<br/>
     *a default option is "java KimiWoNosete 3000 0" (i.e. analyze this song from the beginning with 3000 data points per sample)<br/>
     *Note: the smaller the SAMPLE_SIZE the more precise the sheet score, since it is less likely for previously played notes to carry over into the next window of time, however runtime may be extended<br/>
 5. Wait for the song to finish playing, as the program is writing the notes into a file called "test.txt"<br/>
