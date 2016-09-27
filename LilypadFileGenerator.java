@@ -117,36 +117,7 @@ public class LilypadFileGenerator {
            
     public static void writeChord(ArrayList<Note> notes, FileWriter writer) throws java.io.IOException{
         writer.write("<");
-        for (Note s : notes) {
-            int index = s.getIndex();
-            if (index < 3 ){
-                writer.write(s.getNote() + ",,, ");
-            }
-            else if (index < 15) {
-                writer.write(s.getNote() + ",, ");
-            }
-            else if (index < 27) {
-                writer.write(s.getNote() + ", ");
-            }
-            else if (index < 39) {
-                writer.write(s.getNote() + " ");
-            }
-            else if (index < 51) {
-                writer.write(s.getNote() + "' ");
-            }
-            else if (index < 63) {
-                writer.write(s.getNote() + "'' ");
-            }
-            else if (index < 75) {
-                writer.write(s.getNote() + "''' ");
-            }
-            else if (index < 87) {
-                writer.write(s.getNote() + "'''' ");
-            }
-            else {//87
-                writer.write(s.getNote() + "''''' ");
-            }
-        }
+        writeNote(notes, writer);
         writer.write("> ");
     }
 }
