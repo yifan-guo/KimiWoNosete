@@ -73,13 +73,39 @@ public class KimiWoNoseteLambda implements RequestHandler<Map<String, String>, S
         }
     }
 
-    // Helper method to read the WAV file from InputStream
-    private double[] readWavFile(InputStream inputStream) throws IOException {
-        // Convert the .wav file (in InputStream) into a double array.
-        // Use a library like Apache Tika or javax.sound.sampled.AudioSystem to read the WAV file.
-        // For simplicity, let's assume this method returns the sound data as a double array.
-        // You'll need to implement this part based on how the WAV file is structured.
-        return new double[44100]; // Placeholder, replace with actual WAV reading logic
+    // Helper method to read the WAV file from InputStream and return audio data as a double array
+    private double[] readWavFile(InputStream inputStream) throws IOException, UnsupportedAudioFileException {
+        // Get an AudioInputStream from the input stream
+        AudioInputStream audioInputStream = AudioSystem.getAudioInputStream(inputStream);
+        
+        // Get the format of the audio file
+        AudioFormat format = audioInputStream.getFormat();
+
+        // Check if the format is supported (16-bit mono PCM format, typically used for WAV files)
+        if (format.getSampleSizeInBits() != 16 || format.getChannels() != 1) {
+            throw new UnsupportedAudioFileException("Only 16-bit mono PCM WAV files are supported.");
+        }
+
+        // Read audio data into a byte array
+        byte[] audioBytes = audioInputStream.readAllBytes();
+        
+        // Convert the byte array into a double array for the waveform
+        int sampleSize = format.getSampleSizeInBits() / 8;  // 2 bytes for 16-bit samples
+        int numSamples = audioBytes.length / sampleSize;
+
+        double[] audioData = new double[numSamples];
+        ByteBuffer byteBuffer = ByteBuffer.wrap(audioBytes);
+        byteBuffer.order(ByteOrder.LITTLE_ENDIAN);  // Audio samples in WAV files are typically little-endian
+        
+        // Extract each sample and store as a double
+        for (int i = 0; i < numSamples; i++) {
+            // Read the sample as a 16-bit signed integer
+            short sample = byteBuffer.getShort();
+            // Normalize to the range [-1.0, 1.0] (16-bit signed integer range is [-32768, 32767])
+            audioData[i] = sample / 32768.0;
+        }
+
+        return audioData;
     }
 
     // Helper method to process audio data (same as your current logic, refactored)
