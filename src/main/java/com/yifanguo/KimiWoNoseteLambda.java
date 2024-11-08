@@ -11,12 +11,11 @@ import java.util.Map;
 
 public class KimiWoNoseteLambda implements RequestHandler<Map<String, String>, String> {
 
-    //post:: returns the note that corresponds to the index arg
+    // Helper methods for musical note processing
     public static String h1(int index, String[] notes) {
         return notes[index % 12];
     }
 
-    //post:: returns the index (in the frequency array) with the smallest epsilon value
     public static int computeEpsilon(double[] frequency, double fundfreq) {
         double epsilon = Double.MAX_VALUE;
         double difference = 0;
@@ -41,15 +40,23 @@ public class KimiWoNoseteLambda implements RequestHandler<Map<String, String>, S
 
         // Initialize the S3 client
         AmazonS3 s3Client = AmazonS3ClientBuilder.defaultClient();
+
+        // Log before fetching the file from S3
+        context.getLogger().log("Fetching the .wav file from S3 bucket: " + s3BucketName + ", file: " + s3Key);
         
         // Fetch the .wav file from S3
         S3Object s3Object = s3Client.getObject(s3BucketName, s3Key);
         
         // Process the .wav file
         try {
+            // Log before reading the file
+            context.getLogger().log("Reading the .wav file from S3...");
             InputStream inputStream = s3Object.getObjectContent();
             double[] sound = readWavFile(inputStream);
 
+            // Log after reading the file
+            context.getLogger().log("Finished reading the .wav file. File size: " + sound.length + " samples.");
+            
             // Prepare the note data
             String[] notes = {"a", "ais", "b", "c", "cis", "d", "dis", "e", "f", "fis", "g", "gis"};
             double[] frequency = new double[88];
@@ -57,14 +64,24 @@ public class KimiWoNoseteLambda implements RequestHandler<Map<String, String>, S
                 frequency[i + 48] = 440 * Math.pow(2, (double) i / 12);
             }
 
+            // Log before processing the audio
+            context.getLogger().log("Starting audio processing...");
+
             // Process the audio to extract frequencies
             StringBuilder output = new StringBuilder();
             int N = 1024;  // Sample size
             int Start = 0;  // Start index
-            processAudio(output, sound, N, Start, frequency, notes);
+            processAudio(output, sound, N, Start, frequency, notes, context);
+
+            // Log after processing the audio
+            context.getLogger().log("Audio processing complete.");
 
             // Upload the output .txt file to S3
+            context.getLogger().log("Uploading the results to S3...");
             uploadOutputToS3(s3Client, output.toString(), outputBucket, outputKey);
+
+            // Log after uploading
+            context.getLogger().log("Upload complete. Output saved to: " + outputBucket + "/" + outputKey);
 
             return "Processing complete: " + outputKey;
         } catch (IOException e) {
@@ -77,41 +94,47 @@ public class KimiWoNoseteLambda implements RequestHandler<Map<String, String>, S
     }
 
     private double[] readWavFile(InputStream inputStream) throws IOException, UnsupportedAudioFileException {
+        // Log before reading the audio data
+        System.out.println("Reading audio data from InputStream...");
+
         // Wrap the input stream in a BufferedInputStream to support mark/reset
         BufferedInputStream bufferedInputStream = new BufferedInputStream(inputStream);
-    
+
         // Now pass the bufferedInputStream to the AudioSystem
         AudioInputStream audioInputStream = AudioSystem.getAudioInputStream(bufferedInputStream);
-        
+
         // Get the format of the audio file
         AudioFormat format = audioInputStream.getFormat();
-    
+
+        // Log the format of the audio file
+        System.out.println("Audio format: " + format.toString());
+
         // Check if the format is supported (16-bit mono PCM format, typically used for WAV files)
         if (format.getSampleSizeInBits() != 16 || format.getChannels() != 1) {
             throw new UnsupportedAudioFileException("Only 16-bit mono PCM WAV files are supported.");
         }
-    
+
         // Create a buffer to read data from the AudioInputStream
         ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
         byte[] buffer = new byte[1024]; // Buffer to hold data while reading from the input stream
         int bytesRead;
-    
+
         // Read the audio stream in chunks and write to the ByteArrayOutputStream
         while ((bytesRead = audioInputStream.read(buffer)) != -1) {
             byteArrayOutputStream.write(buffer, 0, bytesRead);
         }
-    
+
         // Get the audio bytes from the ByteArrayOutputStream
         byte[] audioBytes = byteArrayOutputStream.toByteArray();
-    
+
         // Convert the byte array into a double array for the waveform
         int sampleSize = format.getSampleSizeInBits() / 8;  // 2 bytes for 16-bit samples
         int numSamples = audioBytes.length / sampleSize;
-    
+
         double[] audioData = new double[numSamples];
         ByteBuffer byteBuffer = ByteBuffer.wrap(audioBytes);
         byteBuffer.order(ByteOrder.LITTLE_ENDIAN);  // Audio samples in WAV files are typically little-endian
-        
+
         // Extract each sample and store as a double
         for (int i = 0; i < numSamples; i++) {
             // Read the sample as a 16-bit signed integer
@@ -119,15 +142,19 @@ public class KimiWoNoseteLambda implements RequestHandler<Map<String, String>, S
             // Normalize to the range [-1.0, 1.0] (16-bit signed integer range is [-32768, 32767])
             audioData[i] = sample / 32768.0;
         }
-    
+
         return audioData;
     }
-    
 
-    // Helper method to process audio data (same as your current logic, refactored)
-    private void processAudio(StringBuilder output, double[] sound, int N, int Start, double[] frequency, String[] notes) {
+    private void processAudio(StringBuilder output, double[] sound, int N, int Start, double[] frequency, String[] notes, Context context) {
         int SAMPLES_PER_SECOND = 44100;
+        int chunkCount = 0;
+        
         for (int probe = Start; probe + N < sound.length; probe = probe + N) {
+            // Log for each chunk being processed
+            chunkCount++;
+            context.getLogger().log("Processing chunk #" + chunkCount + " from index " + probe);
+
             double[] sample = new double[N];
             for (int i = probe; i < probe + N; i++) {
                 sample[i - probe] = sound[i];
@@ -164,11 +191,20 @@ public class KimiWoNoseteLambda implements RequestHandler<Map<String, String>, S
                 }
             }
         }
+
+        // Log when processing is complete
+        context.getLogger().log("Completed processing " + chunkCount + " chunks.");
     }
 
     // Helper method to upload the output .txt file to S3
     private void uploadOutputToS3(AmazonS3 s3Client, String outputData, String outputBucket, String outputKey) {
+        // Log before uploading
+        System.out.println("Uploading the output to S3...");
+
         InputStream inputStream = new ByteArrayInputStream(outputData.getBytes());
         s3Client.putObject(outputBucket, outputKey, inputStream, null);
+        
+        // Log after uploading
+        System.out.println("Upload complete.");
     }
 }
