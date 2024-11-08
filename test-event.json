@@ -1,0 +1,6 @@
+{
+    "bucket_name": "python-lilypond-bucket",
+    "file_key": "KimiWoNosete_1band.wav",
+    "output_bucket": "python-lilypond-bucket",
+    "output_key": "test.txt"
+}

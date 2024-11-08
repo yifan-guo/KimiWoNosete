@@ -70,6 +70,9 @@ public class KimiWoNoseteLambda implements RequestHandler<Map<String, String>, S
         } catch (IOException e) {
             e.printStackTrace();
             return "Error processing the audio file: " + e.getMessage();
+        } catch (UnsupportedAudioFileException e) {
+            e.printStackTrace();
+            return "Unsupported audio file format: " + e.getMessage();
         }
     }
 
