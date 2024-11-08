@@ -91,9 +91,19 @@ public class KimiWoNoseteLambda implements RequestHandler<Map<String, String>, S
             throw new UnsupportedAudioFileException("Only 16-bit mono PCM WAV files are supported.");
         }
     
-        // Read audio data into a byte array
-        byte[] audioBytes = audioInputStream.readAllBytes();
-        
+        // Create a buffer to read data from the AudioInputStream
+        ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
+        byte[] buffer = new byte[1024]; // Buffer to hold data while reading from the input stream
+        int bytesRead;
+    
+        // Read the audio stream in chunks and write to the ByteArrayOutputStream
+        while ((bytesRead = audioInputStream.read(buffer)) != -1) {
+            byteArrayOutputStream.write(buffer, 0, bytesRead);
+        }
+    
+        // Get the audio bytes from the ByteArrayOutputStream
+        byte[] audioBytes = byteArrayOutputStream.toByteArray();
+    
         // Convert the byte array into a double array for the waveform
         int sampleSize = format.getSampleSizeInBits() / 8;  // 2 bytes for 16-bit samples
         int numSamples = audioBytes.length / sampleSize;
