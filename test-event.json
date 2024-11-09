@@ -1,0 +1,6 @@
+{
+  "bucket_name": "python-lilypond-bucket",
+  "file_key": "test.txt",
+  "output_bucket": "python-lilypond-bucket",
+  "output_key": "from_lilypad_file_generator.ly"
+}

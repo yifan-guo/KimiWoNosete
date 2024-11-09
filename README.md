@@ -1,21 +1,20 @@
-# KimiWoNosete
-A program to analyze .wav files of piano recordings and produce music scores
+# LilypondFileGenerator
+The main LilypadFileGeneratorLambda class processes a file from S3, generates the LilyPond notation, and stores it back in S3.
 
-Requires Lilypond, a music engraving program to render the .ly file produced by this program.
-Download can be found here: http://lilypond.org/
+Let's focus on adapting the LilypadFileGenerator to work as an AWS Lambda function. The solution will involve converting your current logic to work within the Lambda environment, leveraging S3 to handle input/output, and ensuring we handle large files and process them in chunks. Below are the full files for the Lambda function.
 
-#Instructions
-1. Pull repo<br/>
-2. Open up the command line and navigate to this directory<br/>
-3. Compile "javac KimiWoNosete.java"<br/>
-4. Type "java KimiWoNosete [SAMPLE_SIZE] [STARTING_POINT]"  and hit ENTER <br/>
-    *[SAMPLE_SIZE] is an integer that represents the number of data points analyzed per sample (a set of points that represents a window of time in the song)<br/>
-    *[STARTING_POINT] is an integer that represents where in the sound file the program should start analyzing <br/>
-    *a default option is "java KimiWoNosete 3000 0" (i.e. analyze this song from the beginning with 3000 data points per sample)<br/>
-    *Note: the smaller the SAMPLE_SIZE the more precise the sheet score, since it is less likely for previously played notes to carry over into the next window of time, however runtime may be extended<br/>
-5. Type the name of the audio file to be analyzed (default: type "KimiWoNosete_1band.wav")<br/>
-6. Wait for the song to finish playing, as the program is writing the notes into a file called "test.txt"<br/>
-7. Compile "javac LilypadFileGenerator.java"<br/>
-7. Run "java LilypadFileGenerator" from the command line, as it is parsing the "test.txt" file into a file that can be read by Lilypond called "output.ly"<br/>
-8. Open "output.ly", which launches Lilypond automatically, and select "Compile" (or press Cmd + R) from the Lilypond menu bar <br/>
-9. Lilypond will open your PDF viewer and display the sheet music<br/>
+File 1: LilypadFileGeneratorLambda.java
+This file will be your Lambda handler. It will be responsible for:
+- Fetching the audio/text data from S3.
+- Processing the data (just like your original logic).
+- Uploading the results back to S3.
+
+
+ File 2: pom.xml file 
+ This file will manage dependencies for the Lambda function.
+
+ # Todo
+Logging in handleRequest: Logs when the Lambda receives the event and when files are fetched and processed from S3.
+Logging in processFile: Logs the starting of file processing and any notable actions like processing a sample, detecting a peak, or writing output.
+Logging in handleDequeProcessing: Logs details about deque operations, like when a new sample is processed or a peak is found.
+Logging in processPeakSample: Logs when a peak is detected, the number of notes extracted, and the results written into the .ly file.

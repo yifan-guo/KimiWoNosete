@@ -9,3 +9,5 @@
 /StdOut.class
 /test.txt
 /output.ly
+target/
+dependency-reduced-pom.xml
