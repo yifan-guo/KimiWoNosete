@@ -1,49 +1,84 @@
-import yt_dlp
-import boto3
+import subprocess
 import os
-from tempfile import NamedTemporaryFile
+import boto3
+import shutil
+
+# Set up logging
 
 def lambda_handler(event, context):
-    youtube_url = event.get('youtube_url')
+    # Print the current home directory
+    current_home_directory = os.path.expanduser('~')
+    print(f"Current home directory: {current_home_directory}")
     
-    if not youtube_url:
+    # Set the home directory to the default user in Lambda
+    default_home_directory = '/tmp'
+    os.environ['HOME'] = default_home_directory
+    
+    current_home_directory = os.path.expanduser('~')
+    print(f"Updated home directory to: {current_home_directory}")
+    
+    print("Lambda function started")
+
+    s3 = boto3.client('s3')
+    bucket_name = event['bucket']
+    input_file_key = event['input_file']
+    output_file_key = event['output_file']
+    
+    print("Downloading file from S3: bucket=%s, key=%s", bucket_name, input_file_key)
+
+    input_file_path = f'/tmp/{os.path.basename(input_file_key)}'
+    output_pdf_path = f'/tmp/{os.path.splitext(os.path.basename(input_file_key))[0]}'
+
+    try:
+        s3.download_file(bucket_name, input_file_key, input_file_path)
+        print("File downloaded successfully: %s", input_file_path)
+
+    except Exception as e:
+        print(f"Error downloading file: {str(e)}")
+        
         return {
-            'statusCode': 400,
-            'body': 'Missing youtube_url parameter'
+            'statusCode': 500,
+            'body': f'Error downloading .ly file: {e}'
         }
-    
-    # Create a temporary file to store MP3
-    with NamedTemporaryFile(delete=False, suffix=".mp3") as temp_file:
-        temp_file_path = temp_file.name
         
-        # Set up yt-dlp options to download only the audio (MP3)
-        ydl_opts = {
-            'format': 'bestaudio/best',
-            'outtmpl': temp_file_path,
-            'postprocessors': [{
-                'key': 'FFmpegAudio',
-                'preferredcodec': 'mp3',
-                'preferredquality': '192',
-            }],
+    # Generate PDF using LilyPond
+
+    lilypond_command = f'/opt/bin/lilypond -o {output_pdf_path} {input_file_path}'
+    print(f"Running command: {lilypond_command}")
+
+    try:
+        result = subprocess.run(lilypond_command, shell=True, capture_output=True, text=True, env=os.environ)
+        
+        if result.returncode != 0:
+            print("LilyPond command failed with return code %s", result.returncode)
+            print("Error:\n%s", result.stderr)
+            return {
+                'statusCode': 500,
+                'body': f'Error generating PDF: {result.stderr}'
+            }
+
+        print("PDF generated successfully: %s", output_pdf_path)
+
+    except subprocess.CalledProcessError as e:
+        print("Error generating PDF: %s", e)
+        return {
+            'statusCode': 500,
+            'body': f'Error generating PDF: {e}'
         }
 
-        # Download the audio
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            ydl.download([youtube_url])
+    try:
+        # Upload the generated PDF back to S3
+        s3.upload_file(output_pdf_path + ".pdf", bucket_name, output_file_key)
+        print("PDF uploaded successfully to S3: bucket=%s, key=%s", bucket_name, output_file_key)
 
-        # Upload the file to S3
-        s3_client = boto3.client('s3')
-        s3_bucket_name = 'python-lilypond-bucket'  # Replace with your S3 bucket name
-        s3_key = f"audio/{os.path.basename(temp_file_path)}"
-        
-        s3_client.upload_file(temp_file_path, s3_bucket_name, s3_key)
-
-        # Clean up the temporary file
-        os.remove(temp_file_path)
-        
         return {
             'statusCode': 200,
-            'body': {
-                'mp3_s3_url': f'https://{s3_bucket_name}.s3.amazonaws.com/{s3_key}'
-            }
+            'body': f'PDF generated successfully and uploaded to {output_file_key}'
+        }
+    
+    except Exception as e:
+        print("An unexpected error occurred: %s", e)
+        return {
+            'statusCode': 500,
+            'body': f'An unexpected error occurred: {e}'
         }
