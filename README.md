@@ -1,21 +1,42 @@
-# KimiWoNosete
-A program to analyze .wav files of piano recordings and produce music scores
+# About
+To orchestrate multiple AWS Lambda functions with AWS Step Functions, you'll need to create a Step Functions state machine that defines the sequence of steps (i.e., Lambda function executions) as well as any other workflows such as error handling, retries, and branching logic.
 
-Requires Lilypond, a music engraving program to render the .ly file produced by this program.
-Download can be found here: http://lilypond.org/
+# Create the Step Functions State Machine
+The Step Functions state machine allows you to define the orchestration flow.
 
-#Instructions
-1. Pull repo<br/>
-2. Open up the command line and navigate to this directory<br/>
-3. Compile "javac KimiWoNosete.java"<br/>
-4. Type "java KimiWoNosete [SAMPLE_SIZE] [STARTING_POINT]"  and hit ENTER <br/>
-    *[SAMPLE_SIZE] is an integer that represents the number of data points analyzed per sample (a set of points that represents a window of time in the song)<br/>
-    *[STARTING_POINT] is an integer that represents where in the sound file the program should start analyzing <br/>
-    *a default option is "java KimiWoNosete 3000 0" (i.e. analyze this song from the beginning with 3000 data points per sample)<br/>
-    *Note: the smaller the SAMPLE_SIZE the more precise the sheet score, since it is less likely for previously played notes to carry over into the next window of time, however runtime may be extended<br/>
-5. Type the name of the audio file to be analyzed (default: type "KimiWoNosete_1band.wav")<br/>
-6. Wait for the song to finish playing, as the program is writing the notes into a file called "test.txt"<br/>
-7. Compile "javac LilypadFileGenerator.java"<br/>
-7. Run "java LilypadFileGenerator" from the command line, as it is parsing the "test.txt" file into a file that can be read by Lilypond called "output.ly"<br/>
-8. Open "output.ly", which launches Lilypond automatically, and select "Compile" (or press Cmd + R) from the Lilypond menu bar <br/>
-9. Lilypond will open your PDF viewer and display the sheet music<br/>
+Start with a State Machine Definition: You can define the state machine in Amazon States Language (ASL), a JSON-based language used to define workflows.
+The repo includes an `asl.json` file that has the state machine definition that orchestrates multiple Lambda functions:
+
+Explanation of the State Machine:
+Step Function Lambdas
+Convert to MP3: youtubeURL —> .wav file (YouTubeToMP3Lambda)
+Generate Notes: .wav file —> .txt file (KimiWoNoseteLambda)
+Generate .ly File: .txt file —> .ly file (LilypadFileGeneratorLambda)
+Generate PDF: .ly file —> PDF (LilyPondPDFGenerator)
+
+
+Convert to MP3: This state invokes the YouTubeToMP3Lambda function to process the input url to generate a .wav file. (TODO: Rename to reflect it outputs a .wav file)
+The Resource field specifies the ARN of the Lambda function that should be executed.
+After completing, it transitions to the next state (Generate notes).
+Generate Notes: This state invokes the KimiWoNoseteLambda function, which performs an FFT on the .wav file to product the notes in a .txt file.
+After the validation is done, it proceeds to the `Generate .ly file` state.
+`Generate .ly file`: This state invokes the LilypadFileGeneratorLambda, which uses a deque to arrange the notes in a .ly file that Lilypond can read.
+`Generate PDF`: This state invokes the LilyPondPDFGenerator function, which uses lilypond installed in a lambda layer to generate a PDF from the .ly file.
+The End: true indicates the end of the state machine.
+
+# How to trigger step function using S3 object upload?
+To configure your iOS to trigger an AWS Step Functions state machine when a request is created, you will need to use an intermediary AWS Lambda function. Unfortunately, you cannot directly trigger an AWS Step Functions state machine from a API Gateway endpoint. Instead, you use a request to invoke a Lambda function, and that Lambda function, in turn, triggers the Step Functions state machine.
+
+
+Generated a function in Python 3.13 that triggers a Step Function from the body of a POST request from an API Gateway endpoint, and returns a job ID along with a status code for job tracking.
+
+The Lambda function will receive the JSON payload from the API Gateway.
+It will use that payload to trigger a Step Function.
+The Lambda will return a new job ID (you can generate this ID or use a unique identifier) and a status code (e.g., 202 for accepted requests).
+
+
+{
+  "message": "Job accepted and is being processed.",
+  "job_id": "123e4567-e89b-12d3-a456-426614174000",
+  "status": "in-progress"
+}
