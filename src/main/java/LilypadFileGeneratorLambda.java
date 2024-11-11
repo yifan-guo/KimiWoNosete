@@ -8,21 +8,23 @@ import com.amazonaws.services.s3.model.S3ObjectInputStream;
 import java.io.*;
 import java.util.*;
 
-public class LilypadFileGeneratorLambda implements RequestHandler<Map<String, String>, String> {
+public class LilypadFileGeneratorLambda implements RequestHandler<Map<String, String>, Map<String, Object>> {
 
     private static final int MARK_LIMIT = 1000;  // The maximum mark size for reading the file
     private static final int CHUNK_SIZE = 1024;  // Number of samples to process at a time
 
     @Override
-    public String handleRequest(Map<String, String> event, Context context) {
+    public Map<String, Object> handleRequest(Map<String, String> event, Context context) {
         // Retrieve S3 bucket and file key information from the event
         String inputBucket = event.get("bucket_name");
         String inputKey = event.get("file_key");
-        String outputBucket = event.get("output_bucket");
-        String outputKey = event.get("output_key");
-
+        String outputBucket = inputBucket;                                                 // Output bucket to save the result
+        String outputKey = inputKey.replaceAll("\\.[^.]*$", ".ly");      // S3 key for the output file
         // Create S3 client to fetch and store data
         AmazonS3 s3Client = AmazonS3ClientBuilder.defaultClient();
+
+        // Create a response Map to hold the JSON response
+        Map<String, Object> response = new HashMap<>();
 
         try {
             // Fetch the input file from S3
@@ -46,10 +48,16 @@ public class LilypadFileGeneratorLambda implements RequestHandler<Map<String, St
             // Upload the generated output to the specified S3 output location
             uploadOutputToS3(s3Client, outputStream.toString(), outputBucket, outputKey);
 
-            return "Processing complete: " + outputKey;
+            // Add some data to the response
+            response.put("bucket_name", outputBucket);
+            response.put("file_key", outputKey);
+            response.put("message", "Processing complete");
+            return response; // The Lambda framework will automatically serialize this to JSON
+
         } catch (IOException e) {
             e.printStackTrace();
-            return "Error processing file: " + e.getMessage();
+            response.put("message", "Error processing file: " + e.getMessage());
+            return response;
         }
     }
 
