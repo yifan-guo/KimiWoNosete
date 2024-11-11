@@ -7,9 +7,10 @@ import javax.sound.sampled.*;
 import java.io.*;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.util.HashMap;
 import java.util.Map;
 
-public class KimiWoNoseteLambda implements RequestHandler<Map<String, String>, String> {
+public class KimiWoNoseteLambda implements RequestHandler<Map<String, String>, Map<String, Object>> {
 
     // Helper methods for musical note processing
     public static String h1(int index, String[] notes) {
@@ -31,12 +32,12 @@ public class KimiWoNoseteLambda implements RequestHandler<Map<String, String>, S
     }
 
     @Override
-    public String handleRequest(Map<String, String> event, Context context) {
+    public Map<String, Object> handleRequest(Map<String, String> event, Context context) {
         // Retrieve parameters from event
         String s3BucketName = event.get("bucket_name");  // S3 bucket where the input file is located
         String s3Key = event.get("file_key");            // S3 key (path) of the .wav file
-        String outputBucket = event.get("output_bucket"); // Output bucket to save the result
-        String outputKey = event.get("output_key");      // S3 key for the output file
+        String outputBucket = s3BucketName;                  // Output bucket to save the result
+        String outputKey = s3Key.replaceAll("\\.[^.]*$", ".txt");      // S3 key for the output file
 
         // Initialize the S3 client
         AmazonS3 s3Client = AmazonS3ClientBuilder.defaultClient();
@@ -46,6 +47,9 @@ public class KimiWoNoseteLambda implements RequestHandler<Map<String, String>, S
         
         // Fetch the .wav file from S3
         S3Object s3Object = s3Client.getObject(s3BucketName, s3Key);
+
+        // Create a response Map to hold the JSON response
+        Map<String, Object> response = new HashMap<>();
         
         // Process the .wav file
         try {
@@ -83,13 +87,19 @@ public class KimiWoNoseteLambda implements RequestHandler<Map<String, String>, S
             // Log after uploading
             context.getLogger().log("Upload complete. Output saved to: " + outputBucket + "/" + outputKey);
 
-            return "Processing complete: " + outputKey;
+            // Add some data to the response
+            response.put("bucket_name", outputBucket);
+            response.put("file_key", outputKey);
+            response.put("message", "Processing complete");
+            return response; // The Lambda framework will automatically serialize this to JSON
         } catch (IOException e) {
             e.printStackTrace();
-            return "Error processing the audio file: " + e.getMessage();
+            response.put("message", "Error processing the audio file: " + e.getMessage());
+            return response;
         } catch (UnsupportedAudioFileException e) {
             e.printStackTrace();
-            return "Unsupported audio file format: " + e.getMessage();
+            response.put("message", "Unsupported audio file format: " + e.getMessage());
+            return response;
         }
     }
 
