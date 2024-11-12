@@ -12,38 +12,51 @@ def lambda_handler(event, context):
             'body': 'Missing youtube_url parameter'
         }
     
-    # Create a temporary file to store MP3
-    with NamedTemporaryFile(delete=False, suffix=".mp3") as temp_file:
+    # Create a temporary file to store WAV audio
+    with NamedTemporaryFile(delete=False, suffix=".wav") as temp_file:
         temp_file_path = temp_file.name
         
-        # Set up yt-dlp options to download only the audio (MP3)
+        # Set up yt-dlp options to download only the audio (WAV)
         ydl_opts = {
-            'format': 'bestaudio/best',
-            'outtmpl': temp_file_path,
+            'format': 'bestaudio/best',  # Choose the best available audio format
+            'outtmpl': temp_file_path,  # Store it as a temporary file
             'postprocessors': [{
                 'key': 'FFmpegAudio',
-                'preferredcodec': 'mp3',
-                'preferredquality': '192',
+                'preferredcodec': 'wav',  # Change codec to WAV
+                'preferredquality': '192',  # Quality (if applicable)
             }],
         }
 
-        # Download the audio
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            ydl.download([youtube_url])
+        # Download the audio from YouTube
+        try:
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                ydl.download([youtube_url])
+        except Exception as e:
+            return {
+                'statusCode': 500,
+                'body': f"Error downloading video: {str(e)}"
+            }
 
         # Upload the file to S3
         s3_client = boto3.client('s3')
         s3_bucket_name = 'python-lilypond-bucket'  # Replace with your S3 bucket name
         s3_key = f"audio/{os.path.basename(temp_file_path)}"
         
-        s3_client.upload_file(temp_file_path, s3_bucket_name, s3_key)
+        try:
+            # Upload the WAV file to the specified S3 bucket
+            s3_client.upload_file(temp_file_path, s3_bucket_name, s3_key)
+        except Exception as e:
+            return {
+                'statusCode': 500,
+                'body': f"Error uploading to S3: {str(e)}"
+            }
 
-        # Clean up the temporary file
+        # Clean up the temporary file after upload
         os.remove(temp_file_path)
         
+        print(f'successfully wrote .wav file to https://{s3_bucket_name}.s3.amazonaws.com/{s3_key}')
         return {
             'statusCode': 200,
-            'body': {
-                'mp3_s3_url': f'https://{s3_bucket_name}.s3.amazonaws.com/{s3_key}'
-            }
+            'bucket_name': s3_bucket_name,
+            'file_key': s3_key
         }
