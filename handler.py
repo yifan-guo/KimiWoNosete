@@ -20,9 +20,9 @@ def lambda_handler(event, context):
     print("Lambda function started")
 
     s3 = boto3.client('s3')
-    bucket_name = event['bucket']
-    input_file_key = event['input_file']
-    output_file_key = event['output_file']
+    bucket_name = event['bucket_name']
+    input_file_key = event['file_key']
+    output_file_key = os.path.splitext(input_file_key)[0] + '.pdf'
     
     print("Downloading file from S3: bucket=%s, key=%s", bucket_name, input_file_key)
 
