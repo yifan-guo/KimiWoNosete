@@ -284,17 +284,24 @@ Let me know if you need more clarification on how to implement this or if you'd 
 
 
 # Invoke the trigger lambda via API Gateway
+```
 curl -X POST https://bnwc9iszkk.execute-api.us-east-2.amazonaws.com/convert \
 -H "Content-Type: application/json" \
 -d '{"youtube_url": "https://www.youtube.com/watch?v=mZwhtEnrimI"}'
-
+```
 
 # Mapping template
-To format the input in a standard way, I created a mapping template in Integration Request to ensure the body is passed correctly. I provided the following template to pass the body unchanged:
+To format the input in a standard way, I created a mapping template in Integration Request to ensure the body is passed correctly. I provided the following template to pass the payload in a `body` attribute before sending it to the step function:
+
+```
 {
   "body": "$input.body"
 }
+```
 
+# mimicked payload to send to API
+```
 {
   "youtube_url": "https://www.youtube.com/watch?v=mZwhtEnrimI"
 }
+```
