@@ -1,10 +1,23 @@
 import yt_dlp
 import boto3
 import os
+import json
 from tempfile import NamedTemporaryFile
 
 def lambda_handler(event, context):
-    youtube_url = event.get('youtube_url')
+    # Step 1: Parse the JSON payload from the API Gateway request
+    try:
+        payload = event['payload']  # API Gateway body is in the 'payload' key
+    except (KeyError, json.JSONDecodeError) as e:
+        print(f"Error parsing event: {str(e)}")
+        return {
+            'statusCode': 400,
+            'body': json.dumps({
+                'error': 'Event missing payload'
+            })
+        }
+    
+    youtube_url = payload.get('youtube_url')
     
     if not youtube_url:
         return {
@@ -19,12 +32,14 @@ def lambda_handler(event, context):
         # Set up yt-dlp options to download only the audio (WAV)
         ydl_opts = {
             'format': 'bestaudio/best',  # Choose the best available audio format
-            'outtmpl': temp_file_path,  # Store it as a temporary file
+            'outtmpl': 'temp_file_path',  # Store it as a temporary file
+            'quiet': False,
             'postprocessors': [{
-                'key': 'FFmpegAudio',
+                'key': 'FFmpegExtractAudio',
                 'preferredcodec': 'wav',  # Change codec to WAV
                 'preferredquality': '192',  # Quality (if applicable)
             }],
+            'ffmpeg_location': 'ffmpeg-layer/ffmpeg/bin/ffmpeg',  # Path to FFmpeg binary in Lambda layer
         }
 
         # Download the audio from YouTube
