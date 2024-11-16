@@ -43,6 +43,12 @@ Under the Layers section, click on Add a layer.
 Choose Custom layers and select the yt-dlp-layer you just created.
 Click Add.
 
+# Instructions to create cookie
+Download Edit my cookie Chrome Extension
+Under Extension settings, enable in Incognito (and access URLs)
+Open youtube in Incognito and login
+Click on extension, download cookies as Netscape format (txt file)
+Upload .txt file to Lambda
 
 # To run locally
 To run your AWS Lambda function locally, you need to set up a local environment that mimics AWS Lambda's runtime, allowing you to execute the function as it would in the cloud. There are a few different approaches to running Lambda functions locally, and I'll walk you through some of the most common and recommended ones.

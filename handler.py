@@ -2,35 +2,9 @@ import os
 import json
 import boto3
 import yt_dlp
-import requests
 from tempfile import NamedTemporaryFile
 
-# Define the OAuth 2.0 scope (YouTube Data API v3 in this case)
-SCOPES = ['https://www.googleapis.com/auth/youtube.readonly']
-
-# The token endpoint
-TOKEN_URI = 'https://oauth2.googleapis.com/token'
-
-def get_access_token(client_id, client_secret, refresh_token):
-    # Request body for refreshing the token
-    data = {
-        'refresh_token': refresh_token,
-        'client_id': client_id,
-        'client_secret': client_secret,
-        'grant_type': 'refresh_token',
-    }
-
-    # Make the request to refresh the token
-    response = requests.post(TOKEN_URI, data=data)
-    tokens = response.json()
-
-    # Now, you can use the new access token
-    access_token = tokens.get('access_token') 
-
-    return access_token
-
 def lambda_handler(event, context):
-
     # Step 1: Parse the JSON payload from the API Gateway request
     try:
         payload = event['payload']  # API Gateway body is in the 'payload' key
@@ -50,13 +24,9 @@ def lambda_handler(event, context):
             'statusCode': 400,
             'body': 'Missing youtube_url parameter'
         }
-    
-    # Authenticate and get the access token using OAuth
-    client_id = os.environ['client_id']
-    client_secret = os.environ['client_secret']
-    refresh_token = os.environ['refresh_token']
 
-    access_token = get_access_token(client_id, client_secret, refresh_token)
+    # Step 2: Use yt-dlp to download the video/audio using cookies for authentication
+    cookies_path = 'youtube_cookies.txt' # path to the youtube cookies file
 
     # Create a temporary file to store WAV audio
     with NamedTemporaryFile(delete=False, suffix=".wav") as temp_file:
@@ -66,8 +36,7 @@ def lambda_handler(event, context):
         ydl_opts = {
             'format': 'bestaudio/best',  # Choose the best available audio format
             'outtmpl': temp_file_path,  # Store it as a temporary file
-            'username': f'oauth {access_token}',  # Pass OAuth token
-            'password': '',  # empty OAuth token used as password for YouTube
+            'cookies': cookies_path,  # Pass the path to your cookies.txt file
             'postprocessors': [{
                 'key': 'FFmpegExtractAudio',
                 'preferredcodec': 'wav',  # Change codec to WAV
@@ -76,7 +45,7 @@ def lambda_handler(event, context):
             'ffmpeg_location': 'ffmpeg-layer/ffmpeg/bin/ffmpeg',  # Path to FFmpeg binary in Lambda layer
         }
 
-        # Step 2: Use yt-dlp to download the video/audio
+        # Step 3: Use yt-dlp to download the video/audio
         try:
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 ydl.download([youtube_url])
@@ -86,7 +55,7 @@ def lambda_handler(event, context):
                 'body': f"Error downloading video: {str(e)}"
             }
 
-        # Upload the file to S3
+        # Step 4: Upload the file to S3
         s3_client = boto3.client('s3')
         s3_bucket_name = 'python-lilypond-bucket'  # Replace with your S3 bucket name
         s3_key = f"audio/{os.path.basename(temp_file_path)}"
