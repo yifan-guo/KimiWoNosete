@@ -28,6 +28,11 @@ def lambda_handler(event, context):
     # Step 2: Use yt-dlp to download the video/audio using cookies for authentication
     cookies_path = 'youtube_cookies.txt' # path to the youtube cookies file
 
+    # Proxy configuration e.g. "http://username:password@proxy.example.com:port"
+    # Proxy details from Bright Data
+    proxy_url = 'http://brd-customer-hl_71ed0973-zone-isp_proxy1:<my_password>@brd.superproxy.io:22225'
+
+
     # Create a temporary file to store WAV audio
     with NamedTemporaryFile(delete=False, suffix=".wav") as temp_file:
         temp_file_path = temp_file.name
@@ -35,6 +40,7 @@ def lambda_handler(event, context):
         # Set up yt-dlp options to download only the audio (WAV)
         ydl_opts = {
             'format': 'bestaudio/best',  # Choose the best available audio format
+            'proxy': proxy_url,       # Define the proxy URL here
             'outtmpl': temp_file_path,  # Store it as a temporary file
             'cookies': cookies_path,  # Pass the path to your cookies.txt file
             'postprocessors': [{
@@ -42,7 +48,8 @@ def lambda_handler(event, context):
                 'preferredcodec': 'wav',  # Change codec to WAV
                 'preferredquality': '192',  # Quality (if applicable)
             }],
-            'ffmpeg_location': 'ffmpeg-layer/ffmpeg/bin/ffmpeg',  # Path to FFmpeg binary in Lambda layer
+            'ffmpeg_location': 'ffmpeg-layer/ffmpeg',  # Path to FFmpeg binary in Lambda layer
+            'verbose': True,  # Enable debug output to see what's happening
         }
 
         # Step 3: Use yt-dlp to download the video/audio

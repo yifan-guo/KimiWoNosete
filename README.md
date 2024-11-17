@@ -6,7 +6,7 @@ Download can be found here: http://lilypond.org/
 
 This lambda requires the `yt-dlp` library which is not included in the default Lambda runtime environment. It requires a Lambda layer which contains this library.
 
-# Instructions to setup layer
+# Instructions to setup yt-dlp (YouTube downloader) layer
 Create and activate a virtual environment
 ```
 python3 -m venv venv
@@ -20,7 +20,7 @@ mkdir -p python
 
 Install the library into the layer directory
 ```
-pip install yt-dlp -t python
+pip install yt-dlp requests -t python
 ```
 
 Zip the contents
@@ -42,6 +42,18 @@ Go to your Lambda function.
 Under the Layers section, click on Add a layer.
 Choose Custom layers and select the yt-dlp-layer you just created.
 Click Add.
+
+
+# Instructions to setup ffmpeg layer
+Navigate to FFmpeg.org --> Linux --> latest stable 64-bit release
+Download .tar.gz and unpack
+Rename extracted folder to ffmpeg-layer
+mkdir ffmpeg-layer/ffmpeg/bin
+
+Zip the contents
+```
+zip -r ffmpeg-layer.zip ffmpeg-layer
+```
 
 # Instructions to create cookie
 Download Edit my cookie Chrome Extension
