@@ -45,13 +45,14 @@ def lambda_handler(event, context):
 
     # Create a temporary file to store WAV audio
     with NamedTemporaryFile(delete=False, suffix=".wav") as temp_file:
-        temp_file_path = '/tmp/audio.wav'
+        temp_file_path = temp_file.name
+        name, ext = os.path.splitext(temp_file_path) # isolate the extension from the path
         
         # Set up yt-dlp options to download only the audio (WAV)
         ydl_opts = {
             'format': 'bestaudio/best',  # Choose the best available audio format
             'proxy': proxy_url,       # Define the proxy URL here
-            'outtmpl': '/tmp/audio.webm',  # Store it as a temporary file
+            'outtmpl': name + '.webm',  # Store it as a temporary file
             'cookies': cookies_path,  # Pass the path to your cookies.txt file
             'postprocessors': [{
                 'key': 'FFmpegExtractAudio',
