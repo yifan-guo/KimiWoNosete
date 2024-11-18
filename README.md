@@ -28,7 +28,7 @@ Zip the contents
 zip -r yt_dlp_layer.zip python/
 ```
 
-Create the Lambda Layer in AWS:
+## Create the Lambda Layer in AWS:
 
 Go to the AWS Lambda Console.
 Under the Layers section in the sidebar, click on Create Layer.
@@ -45,15 +45,24 @@ Click Add.
 
 
 # Instructions to setup ffmpeg layer
-Navigate to FFmpeg.org --> Linux --> latest stable 64-bit release
-Download .tar.gz and unpack
+Navigate to FFmpeg.org --> Linux --> latest static builds --> older releases
+Download ffmpeg-5.0.1-amd64-static.tar.xz and unpack
 Rename extracted folder to ffmpeg-layer
-mkdir ffmpeg-layer/ffmpeg/bin
 
 Zip the contents
 ```
-zip -r ffmpeg-layer.zip ffmpeg-layer
+zip -r ffmpeg-5.0.1-amd64-static.zip ffmpeg-layer
 ```
+
+Upload .zip file to S3 bucket
+Copy the S3 URL
+
+## Create the Lambda Layer in AWS:
+
+Go to the AWS Lambda Console.
+Under the Layers section in the sidebar, click on Create New Version.
+Select upload .zip file from S3 and paste the S3 URL.
+Click create version
 
 # Instructions to create cookie
 Download Edit my cookie Chrome Extension

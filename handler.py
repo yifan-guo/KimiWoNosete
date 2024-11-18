@@ -1,10 +1,21 @@
 import os
 import json
 import boto3
+import subprocess
 import yt_dlp
 from tempfile import NamedTemporaryFile
 
 def lambda_handler(event, context):
+    current_home_directory = os.path.expanduser('~')
+    print(f"Current home directory: {current_home_directory}")
+    
+    # Set the home directory to the default user in Lambda
+    default_home_directory = '/tmp'
+    os.environ['HOME'] = default_home_directory
+    
+    current_home_directory = os.path.expanduser('~')
+    print(f"Updated home directory to: {current_home_directory}")
+
     # Step 1: Parse the JSON payload from the API Gateway request
     try:
         payload = event['payload']  # API Gateway body is in the 'payload' key
@@ -29,26 +40,25 @@ def lambda_handler(event, context):
     cookies_path = 'youtube_cookies.txt' # path to the youtube cookies file
 
     # Proxy configuration e.g. "http://username:password@proxy.example.com:port"
-    # Proxy details from Bright Data
-    proxy_url = 'http://brd-customer-hl_71ed0973-zone-isp_proxy1:<my_password>@brd.superproxy.io:22225'
-
+    # Proxy details from Smart Proxy
+    proxy_url = 'https://<user>:<password>@gate.smartproxy.com:10004'
 
     # Create a temporary file to store WAV audio
     with NamedTemporaryFile(delete=False, suffix=".wav") as temp_file:
-        temp_file_path = temp_file.name
+        temp_file_path = '/tmp/audio.wav'
         
         # Set up yt-dlp options to download only the audio (WAV)
         ydl_opts = {
             'format': 'bestaudio/best',  # Choose the best available audio format
             'proxy': proxy_url,       # Define the proxy URL here
-            'outtmpl': temp_file_path,  # Store it as a temporary file
+            'outtmpl': '/tmp/audio.webm',  # Store it as a temporary file
             'cookies': cookies_path,  # Pass the path to your cookies.txt file
             'postprocessors': [{
                 'key': 'FFmpegExtractAudio',
                 'preferredcodec': 'wav',  # Change codec to WAV
                 'preferredquality': '192',  # Quality (if applicable)
             }],
-            'ffmpeg_location': 'ffmpeg-layer/ffmpeg',  # Path to FFmpeg binary in Lambda layer
+            'ffmpeg_location': '/opt/ffmpeg-layer/ffmpeg',  # Path to FFmpeg binary in Lambda layer
             'verbose': True,  # Enable debug output to see what's happening
         }
 
