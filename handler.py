@@ -3,9 +3,30 @@ import json
 import boto3
 import subprocess
 import yt_dlp
-from tempfile import NamedTemporaryFile
+import uuid
+import time
+from datetime import datetime
+
+# Retry logic helper function
+def retry_download(yt_dlp_instance, youtube_url, retries=3, delay=5):
+    last_exception = None
+    for attempt in range(1, retries + 1):
+        try:
+            yt_dlp_instance.download([youtube_url])
+            return True  # Successful download
+        except Exception as e:
+            last_exception = e
+            print(f"Attempt {attempt} failed: {str(e)}")
+            if attempt < retries:
+                print(f"Retrying in {delay} seconds...")
+                time.sleep(delay)  # Wait before retrying
+            else:
+                print(f"Giving up after {retries} attempts.")
+    # If all attempts fail, raise the last encountered exception
+    raise last_exception
 
 def lambda_handler(event, context):
+    # Step 0: Set the home directory to /tmp so yt-dlp can write intermediate files
     current_home_directory = os.path.expanduser('~')
     print(f"Current home directory: {current_home_directory}")
     
@@ -46,82 +67,77 @@ def lambda_handler(event, context):
     else:
         print(f"ffmpeg not found at {ffmpeg_path}")
 
-    # Proxy details from Smart Proxy
+    # Proxy configuration 
     proxy_url = "http://username:password@proxy.example.com:port"
+    
+    # Step 3: Generate unique filename for output
+    unique_id = str(uuid.uuid4())  # Create a unique ID for the file
+    timestamp = datetime.now().strftime("%Y%m%d%H%M%S")  # Current timestamp for uniqueness
+    file_name = f"/audio_{timestamp}_{unique_id}"  # Unique audio file name
+    temp_file_path = "/tmp" + file_name + ".webm"
+    wav_temp_file_path = "/tmp" + file_name + ".wav"
 
-    # Create a temporary file to store WAV audio
-    with NamedTemporaryFile(delete=False, suffix=".wav") as temp_file:
-        # temp_file_path = temp_file.name
-        # name, ext = os.path.splitext(temp_file_path) # isolate the extension from the path
-        temp_file_path = '/tmp/audio.wav'
         
-        # Set up yt-dlp options to download only the audio (WAV)
-        ydl_opts = {
-            'format': 'bestaudio/best',  # Choose the best available audio format
-            'proxy': proxy_url,       # Define the proxy URL here
-            # 'outtmpl': name + '.webm',  # Store it as a temporary file
-            'outtmpl': '/tmp/audio.webm',
-            'cookies': cookies_path,  # Pass the path to your cookies.txt file
-            # 'postprocessors': [{
-            #     'key': 'FFmpegExtractAudio',
-            #     'preferredcodec': 'wav',  # Change codec to WAV
-            #     'preferredquality': '192',  # Quality (if applicable)
-            # }],
-            'ffmpeg_location': '/opt/ffmpeg-layer/ffmpeg',  # Path to FFmpeg binary in Lambda layer
-            'verbose': True,  # Enable debug output to see what's happening
-        }
+    # Set up yt-dlp options to download only the audio (WAV)
+    ydl_opts = {
+        'format': 'bestaudio/best',  # Choose the best available audio format
+        'proxy': proxy_url,       # Define the proxy URL here
+        'outtmpl': temp_file_path,  # Store it as a temporary file
+        'cookies': cookies_path,  # Pass the path to your cookies.txt file
+        'ffmpeg_location': '/opt/ffmpeg-layer/ffmpeg',  # Path to FFmpeg binary in Lambda layer
+        'verbose': True,  # Enable debug output to see what's happening
+    }
 
-        # Step 3: Use yt-dlp to download the video/audio
-        try:
-            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                ydl.download([youtube_url])
-        except Exception as e:
-            return {
-                'statusCode': 500,
-                'body': f"Error downloading video: {str(e)}"
-            }
-
-        # Step 4: Convert the downloaded file to 16-bit PCM WAV using ffmpeg
-        wav_temp_file_path = '/tmp/audio.wav'  # Define the output WAV file path
-        
-        try:
-            subprocess.run([
-                ffmpeg_path,
-                '-f', 'webm',
-                '-i', '/tmp/audio.webm',          # Input file
-                '-ac', '1',                     # Set audio to mono (1 channel)
-                '-ar', '44100',                 # Set sample rate to 44100 Hz
-                '-sample_fmt', 's16',           # Set sample format to 16-bit PCM
-                wav_temp_file_path              # Output file path
-            ], check=True)
-            print(f"Successfully converted to WAV: {wav_temp_file_path}")
-        except subprocess.CalledProcessError as e:
-            return {
-                'statusCode': 500,
-                'body': f"Error processing audio with ffmpeg: {str(e)}"
-            }
-
-        # Step 4: Upload the file to S3
-        s3_client = boto3.client('s3')
-        s3_bucket_name = 'python-lilypond-bucket'  # Replace with your S3 bucket name
-        s3_key = f"audio/{os.path.basename(wav_temp_file_path)}"
-        
-        try:
-            # Upload the WAV file to the specified S3 bucket
-            s3_client.upload_file(wav_temp_file_path, s3_bucket_name, s3_key)
-        except Exception as e:
-            return {
-                'statusCode': 500,
-                'body': f"Error uploading to S3: {str(e)}"
-            }
-
-        # Clean up the temporary file after upload
-        os.remove(temp_file_path)
-        # os.remove(wav_temp_file_path)
-        
-        print(f'Successfully wrote .wav file to https://{s3_bucket_name}.s3.amazonaws.com/{s3_key}')
+    # Step 4: Use yt-dlp to download the video/audio
+    try:
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            retry_download(ydl, youtube_url)
+    except Exception as e:
         return {
-            'statusCode': 200,
-            'bucket_name': s3_bucket_name,
-            'file_key': s3_key
+            'statusCode': 500,
+            'body': f"Error downloading video: {str(e)}"
         }
+
+    # Step 5: Convert the downloaded file to 16-bit PCM WAV using ffmpeg    
+    try:
+        subprocess.run([
+            ffmpeg_path,
+            '-f', 'webm',
+            '-i', temp_file_path,          # Input file
+            '-ac', '1',                     # Set audio to mono (1 channel)
+            '-ar', '44100',                 # Set sample rate to 44100 Hz
+            '-sample_fmt', 's16',           # Set sample format to 16-bit PCM
+            wav_temp_file_path              # Output file path
+        ], check=True)
+        print(f"Successfully converted to WAV: {wav_temp_file_path}")
+    except subprocess.CalledProcessError as e:
+        return {
+            'statusCode': 500,
+            'body': f"Error processing audio with ffmpeg: {str(e)}"
+        }
+
+    # Step 6: Upload the file to S3
+    s3_client = boto3.client('s3')
+    s3_bucket_name = 'python-lilypond-bucket'  # Replace with your S3 bucket name
+    s3_key = f"audio/{os.path.basename(wav_temp_file_path)}"
+    
+    try:
+        # Upload the WAV file to the specified S3 bucket
+        s3_client.upload_file(wav_temp_file_path, s3_bucket_name, s3_key)
+    except Exception as e:
+        return {
+            'statusCode': 500,
+            'body': f"Error uploading to S3: {str(e)}"
+        }
+
+    # Step 7: Clean up the temporary file after upload
+    os.remove(temp_file_path)
+    os.remove(wav_temp_file_path)
+    
+    # Step 8: Return status to user
+    print(f'Successfully wrote .wav file to https://{s3_bucket_name}.s3.amazonaws.com/{s3_key}')
+    return {
+        'statusCode': 200,
+        'bucket_name': s3_bucket_name,
+        'file_key': s3_key
+    }
