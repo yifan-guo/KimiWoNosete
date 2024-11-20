@@ -6,6 +6,33 @@ Download can be found here: http://lilypond.org/
 
 This lambda requires the `yt-dlp` library which is not included in the default Lambda runtime environment. It requires a Lambda layer which contains this library.
 
+# Invoke the API
+1. Go to API Gateway
+2. Find this `YouTubeToMP3API` [API](https://us-east-2.console.aws.amazon.com/apigateway/main/apis/bnwc9iszkk/resources?api=bnwc9iszkk&region=us-east-2#)
+
+3. Under Resources, click on the POST endpoint, then click "Test".
+Paste the following in the request body
+```json
+{
+  "youtube_url": "https://www.youtube.com/watch?v=mZwhtEnrimI"
+}
+```
+4. Click Test
+
+~![Invoke API with payload](images/AWS%20API%20Gateway%20POST%20Endpoint%20Test%20Invocation.png)
+
+
+
+This tells the Step Function lambda to trigger the Step Function.
+
+5. A new execution of the State Machine will be created. Find the [execution](https://us-east-2.con5.sole.aws.amazon.com/states/home?region=us-east-2#/v2/executions/details/arn:aws:states:us-east-2:105411766712:execution:GenerateSheetMusic:a57afda0-12c3-42e3-88d7-b13b0cf5e2b5) by going to state functions and clicking on the latest run.
+
+6. Once state machine execution completes, navigate to the S3 [bucket](https://us-east-2.console.aws.amazon.com/s3/object/python-lilypond-bucket?region=us-east-2) to find the .pdf file.
+
+![Successful Execution](images/AWS%20Step%20Function%20Successful%20Execution.png)
+
+7. Download the .pdf file to see the generated sheet music.
+
 # Instructions to setup yt-dlp (YouTube downloader) layer
 Create and activate a virtual environment
 ```
