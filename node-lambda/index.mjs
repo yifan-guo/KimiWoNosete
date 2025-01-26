@@ -71,6 +71,22 @@ async function sendPushNotification(apnsKeyPath, deviceToken, title, body, userI
 export const handler = async (event, context) => {
     console.log("Lambda function triggered.");
 
+    console.log("Received event:", JSON.stringify(event));
+
+    // // Access the deviceToken from the input payload
+    // const deviceToken = event.payload.deviceToken;
+
+    // if (!deviceToken) {
+    //     console.log("Error: deviceToken not found in input.");
+    //     return {
+    //         statusCode: 400,
+    //         body: JSON.stringify({ message: "deviceToken not provided." })
+    //     };
+    // }
+
+    // // Continue with your logic to send the push notification
+    // console.log(`Sending notification to device token: ${deviceToken}`);
+
     // Example: Fetch APNs key from S3
     const bucketName = 'python-lilypond-bucket';
     const keyName = 'AuthKey_T236YGCUT2.p8';

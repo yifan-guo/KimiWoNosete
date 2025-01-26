@@ -1,4 +1,6 @@
 # Development
+## cd into the node folder
+cd node-lambda
 
 ## Initialize a Node.js Project (one-time)
 npm init -y
