@@ -1,13 +1,2 @@
-/Complex.class
-/FFT.class
-/KimiWoNosete.class
-/LilypadFileGenerator.class
-/Note.class
-/StdAudio.class
-/StdDraw.class
-/StdIn.class
-/StdOut.class
-/test.txt
-/output.ly
-target
+**/node_modules/**
 dependency-reduced-pom.xml
