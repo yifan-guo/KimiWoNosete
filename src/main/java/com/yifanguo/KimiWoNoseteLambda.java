@@ -34,6 +34,7 @@ public class KimiWoNoseteLambda implements RequestHandler<Map<String, String>, M
     @Override
     public Map<String, Object> handleRequest(Map<String, String> event, Context context) {
         // Retrieve parameters from event
+        String deviceToken = event.get("deviceToken");   // APN device token used for sending push notifications
         String s3BucketName = event.get("bucket_name");  // S3 bucket where the input file is located
         String s3Key = event.get("file_key");            // S3 key (path) of the .wav file
         String outputBucket = s3BucketName;                  // Output bucket to save the result
@@ -88,6 +89,7 @@ public class KimiWoNoseteLambda implements RequestHandler<Map<String, String>, M
             context.getLogger().log("Upload complete. Output saved to: " + outputBucket + "/" + outputKey);
 
             // Add some data to the response
+            response.put("deviceToken", deviceToken);
             response.put("bucket_name", outputBucket);
             response.put("file_key", outputKey);
             response.put("message", "Processing complete");
