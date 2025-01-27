@@ -9,6 +9,9 @@ const APNS_KEY_ID = 'T236YGCUT2';  // Key ID from Apple Developer Portal
 const APNS_TEAM_ID = '78Z85K7J98'; // Your Team ID
 const APNS_BUNDLE_ID = 'gh-yifan.YouTubeToPDF'; // Your app's bundle ID
 
+const BUCKET_NAME = 'python-lilypond-bucket';
+const KEY_NAME = 'AuthKey_T236YGCUT2.p8';
+
 // Endpoint URL
 const APNS_SERVER = 'https://api.sandbox.push.apple.com:443';  // Use the sandbox URL for development, replace with production URL when ready
 
@@ -73,28 +76,57 @@ export const handler = async (event, context) => {
 
     console.log("Received event:", JSON.stringify(event));
 
-    // // Access the deviceToken from the input payload
-    // const deviceToken = event.payload.deviceToken;
-
-    // if (!deviceToken) {
-    //     console.log("Error: deviceToken not found in input.");
-    //     return {
-    //         statusCode: 400,
-    //         body: JSON.stringify({ message: "deviceToken not provided." })
-    //     };
-    // }
-
-    // // Continue with your logic to send the push notification
-    // console.log(`Sending notification to device token: ${deviceToken}`);
-
-    // Example: Fetch APNs key from S3
-    const bucketName = 'python-lilypond-bucket';
-    const keyName = 'AuthKey_T236YGCUT2.p8';
+    const statusCode = event.statusCode;
+    if (!statusCode) {
+        console.log("Error: statusCode not found in input.");
+        return {
+            statusCode: 400,
+            body: JSON.stringify({ message: "statusCode not provided." })
+        };
+    } 
     
-    console.log(`Fetching APNs key from S3. Bucket: ${bucketName}, Key: ${keyName}`);
+    // If statusCode is not 200, return a 400 response
+    if (statusCode !== 200) {
+        console.log(`Error: Received statusCode ${statusCode}.`);
+        return {
+            statusCode: 400,
+            body: JSON.stringify({ message: `Request failed with status code ${statusCode}.` })
+        };
+    }
+
+    console.log("Status code is 200, proceeding with the next steps.");
+
+    // Access the presigned url from the input payload
+    // e.g presignedUrl = 'https://www.adobe.com/content/dam/cc/en/legal/terms/enterprise/pdfs/GeneralTerms-NA-2024v1.pdf';
+    const body = JSON.parse(event.body);  // The body is a string, so we need to parse it
+    const presignedUrl = body.presigned_url;  // Extract the presigned URL from the parsed body
+    if (!presignedUrl) {
+        console.log("Error: presigned url not found in input.");
+        return {
+            statusCode: 400,
+            body: JSON.stringify({ message: "presigned_url missing from prior step." })
+        };
+    }
+
+    // Access the deviceToken from the input payload
+    // e.g deviceToken = '4c6b80b1c2a6a241cea9b4a1096cb429d2635dca38e8bc0889dd57e9252280d2';
+    const deviceToken = body.deviceToken;
+    if (!deviceToken) {
+        console.log("Error: deviceToken not found in input.");
+        return {
+            statusCode: 400,
+            body: JSON.stringify({ message: "deviceToken not provided." })
+        };
+    }
+    // Log the extracted values
+    console.log(`Extracted presigned URL: ${presignedUrl}`);
+    console.log(`Extracted deviceToken: ${deviceToken}`);
+    
+    // Example: Fetch APNs key from S3
+    console.log(`Fetching APNs key from S3. Bucket: ${BUCKET_NAME}, Key: ${KEY_NAME}`);
     let apnsKeyPath;
     try {
-        apnsKeyPath = await getApnsKeyFromS3(bucketName, keyName);
+        apnsKeyPath = await getApnsKeyFromS3(BUCKET_NAME, KEY_NAME);
     } catch (error) {
         return {
             statusCode: 500,
@@ -103,14 +135,17 @@ export const handler = async (event, context) => {
     }
 
     // Example device token and message
-    const deviceToken = '4c6b80b1c2a6a241cea9b4a1096cb429d2635dca38e8bc0889dd57e9252280d2';
     const title = 'Download Complete';
     const message = 'Your PDF is ready. Tap to view it.';
-    const presignedUrl = 'https://www.adobe.com/content/dam/cc/en/legal/terms/enterprise/pdfs/GeneralTerms-NA-2024v1.pdf';
     const userInfo = { presigned_url: presignedUrl }; // Attach the URL in userInfo
 
-    console.log(`Sending push notification with title: ${title}, message: ${message}, user info: ${JSON.stringify(userInfo)}`);
+    console.log(`Sending push notification with title: 
+        ${title}, 
+        message: ${message}, 
+        user info: ${JSON.stringify(userInfo)}
+        to device token: ${deviceToken}`);
 
+    // Continue with your logic to send the push notification
     try {
         await sendPushNotification(apnsKeyPath, deviceToken, title, message, userInfo);
         return {
