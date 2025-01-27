@@ -1,3 +1,28 @@
+# Approach
+Since Apple limits how long and often code can run while the app is in the background, the app cannot reliably poll the step function for the job status and download url. Instead, I configured the step function talk to Apple's APN (Push Notification Service) to deliver a notification to wake up the app once the job is finished. 
+
+The app shows a popUp that prompts the user to either (1) download the URL or (2) cancel, once the download is received. The listener function is in `AppDelegate` and invokes the showPopup function defined in the `ViewController`.
+
+# TODO
+- [] The app should show a popup indicating the job has been submitted. Currently, the button is grayed out and the user does not know if the job is submitted.
+- [] Write unit tests
+- [] Create a production development profile
+- [] Make repo private because it contains some hardcoded secrets.
+
+The app does not use the didReceive handler to process the notification, but somehow is woken up when receiving the notification while in the background. More debug logs are required to find out how the app is woken up.
+
+# Takeaways
+### 6. **Do I Need to Enable Background Modes for Push Notifications in iOS?**
+   - **Question:** *Do I need to enable "Background Modes" for my app to receive push notifications?*
+   - **Answer:** 
+     - **Yes**, you must enable the **"Background Modes"** capability in your Xcode project to allow your app to handle push notifications while in the background.
+     - Under **Capabilities**, check the **"Background Fetch"** and **"Remote notifications"** options to ensure the app can receive and process notifications while running in the background.
+- Version of iOS in App on XCode needs to be equal or less than the iOS version on the target device
+- Edit the scheme under the dropdown to enable "Debug" or "Release" mode
+- Create a Certificate on Apple Developer and select it on XCode to auto generate a `YouTubeToPDF.entitlements` file. 
+- Download the certificate, key. The AWS step function uses the key to generate a temporary JWT token to authenticate with the APN service. The key is stored in S3.
+
+
 # Development
 ## cd into the node folder
 cd node-lambda
