@@ -83,7 +83,8 @@ def lambda_handler(event, context):
             'statusCode': 200,
             'body': json.dumps({
                 'message': 'PDF generated successfully and uploaded.',
-                'presigned_url': presigned_url
+                'presigned_url': presigned_url,
+                'deviceToken': event['deviceToken']
             })
         }
     
