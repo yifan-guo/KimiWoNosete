@@ -57,6 +57,13 @@ def lambda_handler(event, context):
             'body': 'Missing youtube_url parameter'
         }
 
+    deviceToken = payload.get('deviceToken')
+    if not deviceToken:
+        return {
+            'statusCode': 400,
+            'body': 'Missing deviceToken parameter'
+        }
+
     # Step 2: Use yt-dlp to download the video/audio using cookies for authentication
     cookies_path = 'youtube_cookies.txt' # path to the youtube cookies file
 
@@ -67,9 +74,11 @@ def lambda_handler(event, context):
     else:
         print(f"ffmpeg not found at {ffmpeg_path}")
 
-    # Proxy configuration 
-    proxy_url = "http://username:password@proxy.example.com:port"
-    
+    # Proxy configuration e.g. "http://username:password@proxy.example.com:port"
+    # Proxy details from Smart Proxy
+    # proxy_url = 'https://user-sp5zo8h566-sessionduration-1:~a7x4eSk4boIdH9gaC@gate.smartproxy.com:10004'
+    proxy_url = 'https://user-sp5zo8h566-sessionduration-1:wzt9EyDnhq2hW~V31d@gate.smartproxy.com:10002'
+
     # Step 3: Generate unique filename for output
     unique_id = str(uuid.uuid4())  # Create a unique ID for the file
     timestamp = datetime.now().strftime("%Y%m%d%H%M%S")  # Current timestamp for uniqueness
@@ -139,5 +148,6 @@ def lambda_handler(event, context):
     return {
         'statusCode': 200,
         'bucket_name': s3_bucket_name,
-        'file_key': s3_key
+        'file_key': s3_key,
+        'deviceToken': deviceToken
     }
