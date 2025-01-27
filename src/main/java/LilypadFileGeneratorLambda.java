@@ -16,6 +16,7 @@ public class LilypadFileGeneratorLambda implements RequestHandler<Map<String, St
     @Override
     public Map<String, Object> handleRequest(Map<String, String> event, Context context) {
         // Retrieve S3 bucket and file key information from the event
+        String deviceToken = event.get("deviceToken");
         String inputBucket = event.get("bucket_name");
         String inputKey = event.get("file_key");
         String outputBucket = inputBucket;                                                 // Output bucket to save the result
@@ -49,6 +50,7 @@ public class LilypadFileGeneratorLambda implements RequestHandler<Map<String, St
             uploadOutputToS3(s3Client, outputStream.toString(), outputBucket, outputKey);
 
             // Add some data to the response
+            response.put("deviceToken", deviceToken);
             response.put("bucket_name", outputBucket);
             response.put("file_key", outputKey);
             response.put("message", "Processing complete");
