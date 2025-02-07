@@ -1,8 +1,8 @@
 # KimiWoNosete
-A program to analyze .wav files of piano recordings and produce music scores
+A function to submit .wav files to S3 and call the step function to process and generate a PDF
 
-Requires Lilypond, a music engraving program to render the .ly file produced by this program.
-Download can be found here: http://lilypond.org/
+To allow your iOS app to submit a .wav file to the AWS Lambda function via an API endpoint, you need to create an API that can accept the .wav file and store it in an S3 bucket. Then, you need to trigger the Step Function, passing the file metadata (such as the S3 bucket name and key) to the Lambda function.
+
 
 #Instructions
 1. Pull repo<br/>
@@ -60,6 +60,26 @@ Run the following Maven command to build your application and create the .jar fi
 
 `mvn clean package`
 This will generate your Lambda function's .jar file in the target/ directory.
+
+JAR Location
+Once the build completes, you'll find the generated JAR file in the target/ directory, and it will be named according to the artifactId and version you defined in your pom.xml. In this case, it will be:
+
+```shell
+target/audio-processing-lambda-1.0-SNAPSHOT.jar
+```
+
+# Input
+
+Request Body Model for the API Endpoint
+This would be the expected format for the API that your app calls to send the audio file to the server (which later triggers the Lambda function). The body will include the audio data as a Base64 string along with any metadata (like deviceToken).
+
+```shell
+{
+  "bucket_name": "python-lilypond-bucket",
+  "file": "<Base64-encoded WAV file content>",
+  "deviceToken": "<device_token>"
+}
+```
 
 1.4. Run the Function Locally with AWS SAM
 Now you can use the sam local invoke command to run your Lambda function locally:
