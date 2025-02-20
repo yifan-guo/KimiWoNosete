@@ -55,6 +55,7 @@ async function sendPushNotification(apnsKeyPath, deviceToken, title, body, userI
     const notification = new apn.Notification();
     notification.alert = { title, body };
     notification.sound = 'default'; // Optional: Sound on notification
+    notification.contentAvailable = 1; // Set this to trigger background behavior
     notification.badge = 1; // Optional: Badge number
     notification.payload = userInfo; // Custom data
     notification.topic = APNS_BUNDLE_ID
