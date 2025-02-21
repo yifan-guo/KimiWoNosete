@@ -7,7 +7,7 @@ import fs from 'fs'; // For writing the APNs key to the /tmp directory
 // Replace with your own APNs key details from Apple Developer Portal
 const APNS_KEY_ID = 'T236YGCUT2';  // Key ID from Apple Developer Portal
 const APNS_TEAM_ID = '78Z85K7J98'; // Your Team ID
-const APNS_BUNDLE_ID = 'gh-yifan.YouTubeToPDF'; // Your app's bundle ID
+const APNS_BUNDLE_ID = 'gh-yifan.SheetOfMusic'; // Your app's bundle ID
 
 const BUCKET_NAME = 'python-lilypond-bucket';
 const KEY_NAME = 'AuthKey_T236YGCUT2.p8';
