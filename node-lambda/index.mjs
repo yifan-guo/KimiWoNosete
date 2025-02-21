@@ -13,7 +13,7 @@ const BUCKET_NAME = 'python-lilypond-bucket';
 const KEY_NAME = 'AuthKey_T236YGCUT2.p8';
 
 // Endpoint URL
-const APNS_SERVER = 'https://api.sandbox.push.apple.com:443';  // Use the sandbox URL for development, replace with production URL when ready
+const APNS_SERVER = 'https://api.push.apple.com:443';
 
 // Create a function to download APNs key from S3
 async function getApnsKeyFromS3(bucketName, keyName) {
@@ -46,7 +46,7 @@ async function sendPushNotification(apnsKeyPath, deviceToken, title, body, userI
             keyId: APNS_KEY_ID, // Your APNs Key ID
             teamId: APNS_TEAM_ID // Your Apple Developer Team ID
         },
-        production: false // Use false for sandbox, true for production
+        production: true // Use false for sandbox, true for production
     };
 
     const apnProvider = new apn.Provider(apnsOptions);
