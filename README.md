@@ -40,3 +40,24 @@ The Lambda will return a new job ID (you can generate this ID or use a unique id
   "job_id": "123e4567-e89b-12d3-a456-426614174000",
   "status": "in-progress"
 }
+
+# Input
+The lambda expects an input from API Gateway like this
+```json
+{
+  "body": "{\"youtube_url\": \"https://www.youtube.com/watch?v=mZwhtEnrimI\"}"
+}
+```
+
+# Lambda Layer
+To connect to the sheet music database for record persistence, the Lambda requires the psycopg2 library which is not included in the default Lambda runtime. To create a layer, run the commands below (from [link](https://medium.com/@bloggeraj392/creating-a-psycopg2-layer-for-aws-lambda-a-step-by-step-guide-a2498c97c11e)).
+
+```
+mkdir -p psycopg2-layer/python
+cd psycopg2-layer/python
+pip3 install --platform manylinux2014_x86_64 --target . --python-version 3.11 --only-binary=:all: psycopg2-binary
+cd ..
+zip -r psycopg2-layer.zip python
+```
+
+Upload the generated .zip file to the layer to test the Lambda.

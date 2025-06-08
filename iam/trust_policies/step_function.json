@@ -5,6 +5,11 @@
         "Effect": "Allow",
         "Action": "states:StartExecution",
         "Resource": "arn:aws:states:your-region:your-account-id:stateMachine:MyStepFunction"
+      },
+      {
+        "Effect": "Allow",
+        "Action": "secretsmanager:GetSecretValue",
+        "Resource": "arn:aws:secretsmanager:us-east-2:105411766712:secret:rds/sheetmusic/password-*"
       }
     ]
   }

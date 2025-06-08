@@ -9,3 +9,7 @@
 /StdOut.class
 /test.txt
 /output.ly
+
+**/.DS_Store
+psycopg2**/*
+*/*.zip
