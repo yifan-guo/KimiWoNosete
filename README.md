@@ -33,14 +33,22 @@ npm init -y
 ## install dependencies
 npm install apn aws-sdk
 
+## prepare the Lambda layer
+Since there are already lots of modules installed in node-modules, easier to just add additional ones to existing package and copy over to the layer directory
+
+```
+cp -r node_modules apn-layer/nodejs
+cd apn-layer
+```
+
 ## prepare the zip deployment package
-zip -r function.zip index.mjs node_modules/ package.json
+zip -r apn-layer.zip nodejs
 
 ## Upload to AWS Lambda
 Go to the AWS Lambda console.
 Create a new Lambda function (or update an existing one).
 In the "Function code" section, choose the "Upload a .zip file" option.
-Click on Upload and select the function.zip file you just created.
+Click on Upload and select the apn-layer.zip file you just created.
 
 # Folder Structure
 ```
@@ -59,8 +67,26 @@ Create a test event with the payload:
 }
 ```
 
-Invoke the Lambda and confirm the response is:
+### Input
+```json
+{
+  "originalInput": {
+    "job_id": "e9879c1e-xxxx-xxxx-xxxx-7cbbd56a10aa",
+    "payload": {
+      "youtube_url": "https://www.youtube.com/watch?v=abc123",
+      "deviceToken": "abcdef123456"
+    }
+  },
+  "error": {
+    "error": "States.TaskFailed",
+    "cause": "Some error happened during processing"
+  }
+}
 ```
+
+
+### Response
+```json
 {
   "statusCode": 200,
   "body": "{\"message\":\"Push notification sent successfully.\"}"
@@ -68,7 +94,7 @@ Invoke the Lambda and confirm the response is:
 ```
 
 Logs should contain the following entry that indicates a successful delivery
-```
+```json
 2025-01-26T22:11:59.945Z	1dc5ddb0-2822-4fff-a86d-12eb91f62467	INFO	Notification sent successfully. Response:  {"sent":[{"device":"4c6b80b1c2a6a241cea9b4a1096cb429d2635dca38e8bc0889dd57e9252280d2"}],"failed":[]}
 ```
 

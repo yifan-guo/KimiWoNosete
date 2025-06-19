@@ -3,6 +3,8 @@
 import apn from 'apn'; // Importing the APN module
 import AWS from 'aws-sdk'; // Importing the AWS SDK for S3
 import fs from 'fs'; // For writing the APNs key to the /tmp directory
+import pkg from 'pg';
+import { v4 as uuidv4 } from 'uuid';
 
 // Replace with your own APNs key details from Apple Developer Portal
 const APNS_KEY_ID = 'T236YGCUT2';  // Key ID from Apple Developer Portal
@@ -14,6 +16,76 @@ const KEY_NAME = 'AuthKey_T236YGCUT2.p8';
 
 // Endpoint URL
 const APNS_SERVER = 'https://api.sandbox.push.apple.com:443';  // Use the sandbox URL for development, replace with production URL when ready
+
+const AWS_REGION = process.env.AWS_REGION;
+
+const { Pool } = pkg;
+
+const DB_SECRET_ID = 'rds/sheetmusic/password';
+const DB_CONFIG = {
+  host: 'sheetmusic-db.cnwoaowq0gyw.us-east-2.rds.amazonaws.com',
+  port: 5432,
+  user: 'postgres',
+  database: 'postgres',
+  ssl: { rejectUnauthorized: false }
+};
+
+
+async function getDbPasswordFromSecretsManager() {
+    const client = new AWS.SecretsManager({ region: AWS_REGION });
+
+    try {
+        const response = await client.getSecretValue({ SecretId: DB_SECRET_ID }).promise();
+
+        let secret;
+        if ('SecretString' in response) {
+            secret = response.SecretString;
+        } else {
+            // If the secret is stored as binary
+            const buff = Buffer.from(response.SecretBinary, 'base64');
+            secret = buff.toString('ascii');
+        }
+
+        const secretPayload = JSON.parse(secret);
+
+        if (!secretPayload.password) {
+            throw new Error('Password not found in secret');
+        }
+
+        return secretPayload.password;
+
+    } catch (err) {
+        console.error(`Error retrieving secret '${DB_SECRET_ID}': ${err.message}`);
+        throw err;
+    }
+}
+
+async function recordFailureToDatabase(submissionId, errorMessage) {
+  const password = await getDbPasswordFromSecretsManager();
+
+  const pool = new Pool({
+    ...DB_CONFIG,
+    password
+  });
+
+  const client = await pool.connect();
+
+  try {
+    const resultId = uuidv4(); // Generates a unique ID
+
+    await client.query(`
+      INSERT INTO public."Result" (id, "submissionId", "sheetMusicUrl", "generatedAt", "status", "errorMessage")
+      VALUES ( $1, $2, '', NOW(), 'FAILED', $3)
+    `, [resultId, submissionId, errorMessage]);
+
+    console.log(`Failure recorded in DB for submission ${submissionId}`);
+  } catch (err) {
+    console.error('Database insert failed:', err);
+  } finally {
+    client.release();
+  }
+}
+
 
 // Create a function to download APNs key from S3
 async function getApnsKeyFromS3(bucketName, keyName) {
@@ -70,13 +142,14 @@ async function sendPushNotification(apnsKeyPath, deviceToken, title, body, userI
     }
 }
 
-// Lambda handler function
 export const handler = async (event, context) => {
     console.log("Received event:", JSON.stringify(event));
 
-    original_input = event.get("originalInput", {});
-    payload = original_input.get("payload", {});
-    device_token = payload.get("deviceToken");
+    const original_input = event.originalInput || {};
+    console.log("Original input from Step Function:", JSON.stringify(original_input, null, 2));
+
+    const payload = original_input.payload || {};
+    const device_token = payload.deviceToken;
     if (!device_token) {
         console.log("Error: deviceToken not found in input.");
         return {
@@ -85,21 +158,10 @@ export const handler = async (event, context) => {
         };
     }
 
-    // Log the extracted values
-    console.log(`Extracted deviceToken: ${deviceToken}`);
-    
-    error_details = event.get("error", {})
-    error_message = error_details.get("cause", "Unknown error occurred.")
+    const error_details = event.error || {};
+    const error_message = error_details.cause || "Unknown error occurred.";
 
-    if (!error_message) {
-        console.log("Error: error cause not found in input.");
-        return {
-            statusCode: 400,
-            body: JSON.stringify({ message: "error cause not found." })
-        };
-    } 
-    
-    // Example: Fetch APNs key from S3
+    // Download APNs key from S3
     console.log(`Fetching APNs key from S3. Bucket: ${BUCKET_NAME}, Key: ${KEY_NAME}`);
     let apnsKeyPath;
     try {
@@ -111,28 +173,27 @@ export const handler = async (event, context) => {
         };
     }
 
-    // Example device token and message
+    // Send APNs Notification
     const title = 'Download Failed';
-    const message = 'Your download failed. Please try again.'
-    const userInfo = { error: error_message }; // Attach the error message in userInfo
+    const message = 'Your download failed. Please try again.';
+    const userInfo = { error: error_message };
 
-    console.log(`Sending push notification with title: 
-        ${title}, 
-        message: ${message}, 
-        user info: ${JSON.stringify(userInfo)}
-        to device token: ${deviceToken}`);
-
-    // Continue with your logic to send the push notification
     try {
-        await sendPushNotification(apnsKeyPath, deviceToken, title, message, userInfo);
-        return {
-            statusCode: 200,
-            body: JSON.stringify({ message: 'Push notification sent successfully.' })
-        };
-    } catch (error) {
-        return {
-            statusCode: 500,
-            body: JSON.stringify({ message: 'Failed to send notification.', error: error.message })
-        };
+        await sendPushNotification(apnsKeyPath, device_token, title, message, userInfo);
+    } catch (e) {
+        console.log("Push notification failed:", e.message);
     }
+
+    // Record failure to DB
+    const stepFunctionJobId = original_input.job_id;
+    if (!stepFunctionJobId) {
+        console.log("JobId not found in input, skipping write to database");
+    } else {
+        await recordFailureToDatabase(stepFunctionJobId, error_message);
+    }
+
+    return {
+        statusCode: 200,
+        body: JSON.stringify({ message: 'Failure handled.' })
+    };
 };
