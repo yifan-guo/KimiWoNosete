@@ -73,10 +73,25 @@ async function recordFailureToDatabase(submissionId, errorMessage) {
   try {
     const resultId = uuidv4(); // Generates a unique ID
 
+    const res = await client.query(
+        'SELECT "createdAt" FROM public."Submission" WHERE id = $1',
+        [submissionId]
+    );
+
+    if (res.rows.length == 0) {
+        console.warn('Submission with id ${submissionId} not found');
+        return;
+    }
+    
+    // calculate the running time for this submission
+    const createdAt = new Date(res.rows[0].createdAt);
+    const now = new Date()
+    const processingTimeMs = now.getTime() - createdAt.getTime()
+
     await client.query(`
-      INSERT INTO public."Result" (id, "submissionId", "sheetMusicUrl", "generatedAt", "status", "errorMessage")
-      VALUES ( $1, $2, '', NOW(), 'FAILED', $3)
-    `, [resultId, submissionId, errorMessage]);
+      INSERT INTO public."Result" (id, "submissionId", "sheetMusicUrl", "generatedAt", "status", "errorMessage", "processingMs")
+      VALUES ( $1, $2, '', NOW(), 'FAILED', $3, $4)
+    `, [resultId, submissionId, errorMessage, processingTimeMs]);
 
     console.log(`Failure recorded in DB for submission ${submissionId}`);
   } catch (err) {
