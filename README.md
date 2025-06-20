@@ -24,25 +24,23 @@ The app does not use the didReceive handler to process the notification, but som
 
 
 # Development
-## cd into the node folder
-cd node-lambda
+## create the lambda layer folder
+mkdir apn-layer
+mkdir apn-layer/nodejs
+cd apn-layer/nodejs
 
 ## Initialize a Node.js Project (one-time)
 npm init -y
 
 ## install dependencies
-npm install apn aws-sdk
+npm install apn aws-sdk pg
 
-## prepare the Lambda layer
-Since there are already lots of modules installed in node-modules, easier to just add additional ones to existing package and copy over to the layer directory
-
-```
-cp -r node_modules apn-layer/nodejs
-cd apn-layer
-```
 
 ## prepare the zip deployment package
+```
+cd ..
 zip -r apn-layer.zip nodejs
+```
 
 ## Upload to AWS Lambda
 Go to the AWS Lambda console.

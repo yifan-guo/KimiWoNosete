@@ -1,5 +1,5 @@
 {
-  "name": "lambda",
+  "name": "nodejs",
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
@@ -11,6 +11,7 @@
   "description": "",
   "dependencies": {
     "apn": "^2.2.0",
-    "fs": "^0.0.1-security"
+    "aws-sdk": "^2.1692.0",
+    "pg": "^8.16.2"
   }
 }
