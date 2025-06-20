@@ -25,16 +25,21 @@ The app does not use the didReceive handler to process the notification, but som
 
 # Development
 ## create the lambda layer folder
+```
 mkdir apn-layer
 mkdir apn-layer/nodejs
 cd apn-layer/nodejs
+```
 
 ## Initialize a Node.js Project (one-time)
+```
 npm init -y
+```
 
 ## install dependencies
+```
 npm install apn aws-sdk pg
-
+```
 
 ## prepare the zip deployment package
 ```
