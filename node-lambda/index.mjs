@@ -3,6 +3,8 @@
 import apn from 'apn'; // Importing the APN module
 import AWS from 'aws-sdk'; // Importing the AWS SDK for S3
 import fs from 'fs'; // For writing the APNs key to the /tmp directory
+import pkg from 'pg';
+import { v4 as uuidv4 } from 'uuid';
 
 // Replace with your own APNs key details from Apple Developer Portal
 const APNS_KEY_ID = 'T236YGCUT2';  // Key ID from Apple Developer Portal
@@ -13,7 +15,49 @@ const BUCKET_NAME = 'python-lilypond-bucket';
 const KEY_NAME = 'AuthKey_T236YGCUT2.p8';
 
 // Endpoint URL
-const APNS_SERVER = 'https://api.push.apple.com:443';
+// const APNS_SERVER = 'https://api.sandbox.push.apple.com:443';  // Use the sandbox URL for development, replace with production URL when ready
+const APNS_SERVER = 'https://api.push.apple.com:443'
+
+const AWS_REGION = process.env.AWS_REGION;
+const { Pool } = pkg;
+
+const DB_SECRET_ID = 'rds/sheetmusic/password';
+const DB_CONFIG = {
+  host: 'sheetmusic-db.cnwoaowq0gyw.us-east-2.rds.amazonaws.com',
+  port: 5432,
+  user: 'postgres',
+  database: 'postgres',
+  ssl: { rejectUnauthorized: false }
+};
+
+async function getDbPasswordFromSecretsManager() {
+    const client = new AWS.SecretsManager({ region: AWS_REGION });
+
+    try {
+        const response = await client.getSecretValue({ SecretId: DB_SECRET_ID }).promise();
+
+        let secret;
+        if ('SecretString' in response) {
+            secret = response.SecretString;
+        } else {
+            // If the secret is stored as binary
+            const buff = Buffer.from(response.SecretBinary, 'base64');
+            secret = buff.toString('ascii');
+        }
+
+        const secretPayload = JSON.parse(secret);
+
+        if (!secretPayload.password) {
+            throw new Error('Password not found in secret');
+        }
+
+        return secretPayload.password;
+
+    } catch (err) {
+        console.error(`Error retrieving secret '${DB_SECRET_ID}': ${err.message}`);
+        throw err;
+    }
+}
 
 // Create a function to download APNs key from S3
 async function getApnsKeyFromS3(bucketName, keyName) {
@@ -71,6 +115,48 @@ async function sendPushNotification(apnsKeyPath, deviceToken, title, body, userI
     }
 }
 
+
+async function recordSubmissionToDatabase(submissionId, presignedUrl) {
+  const password = await getDbPasswordFromSecretsManager();
+
+  const pool = new Pool({
+    ...DB_CONFIG,
+    password
+  });
+
+  const client = await pool.connect();
+
+  try {
+    const resultId = uuidv4(); // Generates a unique ID
+
+    const res = await client.query(
+        'SELECT "createdAt" FROM public."Submission" WHERE id = $1',
+        [submissionId]
+    );
+
+    if (res.rows.length == 0) {
+        console.warn('Submission with id ${submissionId} not found');
+        return;
+    }
+    
+    // calculate the running time for this submission
+    const createdAt = new Date(res.rows[0].createdAt);
+    const now = new Date()
+    const processingTimeMs = now.getTime() - createdAt.getTime()
+
+    await client.query(`
+      INSERT INTO public."Result" (id, "submissionId", "sheetMusicUrl", "generatedAt", "status", "errorMessage", "processingMs")
+      VALUES ( $1, $2, $3, NOW(), 'COMPLETED', $4, $5)
+    `, [resultId, submissionId, presignedUrl, '', processingTimeMs]);
+
+    console.log(`Success recorded in DB for submission ${submissionId}`);
+  } catch (err) {
+    console.error('Database insert failed:', err);
+  } finally {
+    client.release();
+  }
+}
+
 // Lambda handler function
 export const handler = async (event, context) => {
     console.log("Lambda function triggered.");
@@ -109,6 +195,14 @@ export const handler = async (event, context) => {
         };
     }
 
+    // write record to db   
+    const stepFunctionJobId = event.jobId;
+    if (!stepFunctionJobId) {
+        console.log("JobId not found in input, skipping write to database");
+    } else {
+        await recordSubmissionToDatabase(stepFunctionJobId, presignedUrl);
+    }
+
     // Access the deviceToken from the input payload
     // e.g deviceToken = '4c6b80b1c2a6a241cea9b4a1096cb429d2635dca38e8bc0889dd57e9252280d2';
     const deviceToken = body.deviceToken;
@@ -140,11 +234,7 @@ export const handler = async (event, context) => {
     const message = 'Your PDF is ready. Tap to view it.';
     const userInfo = { presigned_url: presignedUrl }; // Attach the URL in userInfo
 
-    console.log(`Sending push notification with title: 
-        ${title}, 
-        message: ${message}, 
-        user info: ${JSON.stringify(userInfo)}
-        to device token: ${deviceToken}`);
+    console.log(`Sending push notification to user`);
 
     // Continue with your logic to send the push notification
     try {
