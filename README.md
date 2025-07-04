@@ -1,3 +1,7 @@
+# About
+This lambda function sends a push notification to the device that the submission failed with error details. The lambda then writes a record to the Results table in the RDS database for the failed submission.
+
+
 # Approach
 Since Apple limits how long and often code can run while the app is in the background, the app cannot reliably poll the step function for the job status and download url. Instead, I configured the step function talk to Apple's APN (Push Notification Service) to deliver a notification to wake up the app once the job is finished. 
 
