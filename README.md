@@ -61,3 +61,25 @@ zip -r psycopg2-layer.zip python
 ```
 
 Upload the generated .zip file to the layer to test the Lambda.
+
+
+## Step function definition
+
+The `jobId` parameter is generated dynamically when the Step function is invoked; it is not passed through the lambdas in the step function. The send notification lambda needs this value and gets it from the Step Function native environment.
+
+
+```json
+"Payload": {
+  "jobId.$": "$$.Execution.Name",
+  "input.$": "$"
+}
+```
+
+This retrieves the Step Function execution name dynamically from the execution context. We moved jobId into the Payload for downstream Lambda steps, since Step Functions only supports custom inputs inside Payload when invoking Lambdas using arn:aws:states:::lambda:invoke.
+
+Defining this way also result in the original input becoming nested inside of a root-level field called "input". The send-notification lambda has to parse this extra layer to extract the payload.
+
+Logs should contain the following entry that indicates a successful delivery
+```
+2025-01-26T22:11:59.945Z	1dc5ddb0-2822-4fff-a86d-12eb91f62467	INFO	Notification sent successfully. Response:  {"sent":[{"device":"4c6b80b1c2a6a241cea9b4a1096cb429d2635dca38e8bc0889dd57e9252280d2"}],"failed":[]}
+```

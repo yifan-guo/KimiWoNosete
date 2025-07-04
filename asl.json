@@ -8,7 +8,7 @@
       "OutputPath": "$.Payload",
       "Parameters": {
         "Payload.$": "$",
-        "FunctionName": "arn:aws:lambda:us-east-2:105411766712:function:YouTubeToMP3Lambda:$LATEST"
+        "FunctionName": "arn:aws:lambda:us-east-2:105411766712:function:step1:$LATEST"
       },
       "Retry": [
         {
@@ -32,7 +32,7 @@
       "OutputPath": "$.Payload",
       "Parameters": {
         "Payload.$": "$",
-        "FunctionName": "arn:aws:lambda:us-east-2:105411766712:function:KimiWoNoseteLambda:$LATEST"
+        "FunctionName": "arn:aws:lambda:us-east-2:105411766712:function:step2:$LATEST"
       },
       "Retry": [
         {
@@ -56,7 +56,7 @@
       "OutputPath": "$.Payload",
       "Parameters": {
         "Payload.$": "$",
-        "FunctionName": "arn:aws:lambda:us-east-2:105411766712:function:LilypadFileGeneratorLambda:$LATEST"
+        "FunctionName": "arn:aws:lambda:us-east-2:105411766712:function:step3:$LATEST"
       },
       "Retry": [
         {
@@ -80,7 +80,34 @@
       "OutputPath": "$.Payload",
       "Parameters": {
         "Payload.$": "$",
-        "FunctionName": "arn:aws:lambda:us-east-2:105411766712:function:LilyPondPDFGenerator:$LATEST"
+        "FunctionName": "arn:aws:lambda:us-east-2:105411766712:function:step4:$LATEST"
+      },
+      "Retry": [
+        {
+          "ErrorEquals": [
+            "Lambda.ServiceException",
+            "Lambda.AWSLambdaException",
+            "Lambda.SdkClientException",
+            "Lambda.TooManyRequestsException"
+          ],
+          "IntervalSeconds": 1,
+          "MaxAttempts": 3,
+          "BackoffRate": 2,
+          "JitterStrategy": "FULL"
+        }
+      ],
+      "Next": "Send Push Notification"
+    },
+    "Send Push Notification": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "OutputPath": "$.Payload",
+      "Parameters": {
+        "Payload": {
+          "jobId.$": "$$.Execution.Name",
+          "input.$": "$"
+        },
+        "FunctionName": "arn:aws:lambda:us-east-2:105411766712:function:step5:$LATEST"
       },
       "Retry": [
         {
