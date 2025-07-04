@@ -24,6 +24,15 @@
           "JitterStrategy": "FULL"
         }
       ],
+      "Catch": [
+        {
+          "ErrorEquals": [
+            "States.ALL"
+          ],
+          "Next": "Error Handler",
+          "ResultPath": "$.error"
+        }
+      ],
       "Next": "Generate notes"
     },
     "Generate notes": {
@@ -46,6 +55,15 @@
           "MaxAttempts": 3,
           "BackoffRate": 2,
           "JitterStrategy": "FULL"
+        }
+      ],
+      "Catch": [
+        {
+          "ErrorEquals": [
+            "States.ALL"
+          ],
+          "Next": "Error Handler",
+          "ResultPath": "$.error"
         }
       ],
       "Next": "Generate .ly file"
@@ -72,6 +90,15 @@
           "JitterStrategy": "FULL"
         }
       ],
+      "Catch": [
+        {
+          "ErrorEquals": [
+            "States.ALL"
+          ],
+          "Next": "Error Handler",
+          "ResultPath": "$.error"
+        }
+      ],
       "Next": "Generate PDF"
     },
     "Generate PDF": {
@@ -94,6 +121,15 @@
           "MaxAttempts": 3,
           "BackoffRate": 2,
           "JitterStrategy": "FULL"
+        }
+      ],
+      "Catch": [
+        {
+          "ErrorEquals": [
+            "States.ALL"
+          ],
+          "Next": "Error Handler",
+          "ResultPath": "$.error"
         }
       ],
       "Next": "Send Push Notification"
@@ -123,6 +159,27 @@
           "JitterStrategy": "FULL"
         }
       ],
+      "Catch": [
+        {
+          "ErrorEquals": [
+            "States.ALL"
+          ],
+          "Next": "Error Handler",
+          "ResultPath": "$.error"
+        }
+      ],
+      "End": true
+    },
+    "Error Handler": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "Payload": {
+          "originalInput.$": "$",
+          "error.$": "$.error"
+        },
+        "FunctionName": "arn:aws:lambda:us-east-2:105411766712:function:SendFailurePushNotification:$LATEST"
+      },
       "End": true
     }
   }
