@@ -62,10 +62,29 @@ Create a test event with the payload:
 Invoke the Lambda and confirm the response is:
 ```
 {
-  "statusCode": 200,
+  "jobId": "6a7ba1a7-9484-4208-993a-42f56705d026",
+  "input": {
+    "statusCode": 200,
   "body": "{\"message\":\"Push notification sent successfully.\"}"
+  }
 }
 ```
+
+## Step function definition
+
+The `jobId` parameter is generated dynamically when the Step function is invoked; it is not passed through the lambdas in the step function. The send notification lambda needs this value and gets it from the Step Function native environment.
+
+
+```json
+"Payload": {
+  "jobId.$": "$$.Execution.Name",
+  "input.$": "$"
+}
+```
+
+This retrieves the Step Function execution name dynamically from the execution context. We moved jobId into the Payload for downstream Lambda steps, since Step Functions only supports custom inputs inside Payload when invoking Lambdas using arn:aws:states:::lambda:invoke.
+
+Defining this way also result in the original input becoming nested inside of a root-level field called "input". The send-notification lambda has to parse this extra layer to extract the payload.
 
 Logs should contain the following entry that indicates a successful delivery
 ```

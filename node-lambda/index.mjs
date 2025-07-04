@@ -163,7 +163,7 @@ export const handler = async (event, context) => {
 
     console.log("Received event:", JSON.stringify(event));
 
-    const statusCode = event.statusCode;
+    const statusCode = event.input.statusCode;
     if (!statusCode) {
         console.log("Error: statusCode not found in input.");
         return {
@@ -185,7 +185,7 @@ export const handler = async (event, context) => {
 
     // Access the presigned url from the input payload
     // e.g presignedUrl = 'https://www.adobe.com/content/dam/cc/en/legal/terms/enterprise/pdfs/GeneralTerms-NA-2024v1.pdf';
-    const body = JSON.parse(event.body);  // The body is a string, so we need to parse it
+    const body = JSON.parse(event.input.body);  // The body is a string, so we need to parse it
     const presignedUrl = body.presigned_url;  // Extract the presigned URL from the parsed body
     if (!presignedUrl) {
         console.log("Error: presigned url not found in input.");
