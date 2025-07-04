@@ -62,7 +62,7 @@ Create a test event with the payload:
   "jobId": "6a7ba1a7-9484-4208-993a-42f56705d026",
   "input": {
     "statusCode": 200,
-    "body": "{\"message\":\"Push notification sent successfully.\", \"presigned_url\": \"https://www.adobe.com/content/dam/cc/en/legal/terms/enterprise/pdfs/GeneralTerms-NA-2024v1.pdf\", \"deviceToken\": \"abc123\"}"
+    "body": "{\"message\":\"PDF generated successfully and uploaded\", \"presigned_url\": \"https://www.adobe.com/content/dam/cc/en/legal/terms/enterprise/pdfs/GeneralTerms-NA-2024v1.pdf\", \"deviceToken\": \"abc123\"}"
   }
 }
 ```
