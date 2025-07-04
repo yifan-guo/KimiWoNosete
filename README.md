@@ -1,3 +1,6 @@
+# About
+This lambda function sends a notification to the user informing them the submission was successful. It reads the submission record from the Results table, calculates the processing time, and then writes a record to the Results table with the processing time, submissionId, and sheet music url.
+
 # Approach
 Since Apple limits how long and often code can run while the app is in the background, the app cannot reliably poll the step function for the job status and download url. Instead, I configured the step function talk to Apple's APN (Push Notification Service) to deliver a notification to wake up the app once the job is finished. 
 
@@ -65,7 +68,7 @@ Invoke the Lambda and confirm the response is:
   "jobId": "6a7ba1a7-9484-4208-993a-42f56705d026",
   "input": {
     "statusCode": 200,
-  "body": "{\"message\":\"Push notification sent successfully.\"}"
+    "body": "{\"message\":\"Push notification sent successfully.\"}"
   }
 }
 ```
