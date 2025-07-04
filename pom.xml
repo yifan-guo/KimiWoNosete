@@ -34,6 +34,13 @@
             <version>1.12.246</version>
         </dependency>
 
+        <!-- AWS SDK: Secrets Manager -->
+        <dependency>
+            <groupId>com.amazonaws</groupId>
+            <artifactId>aws-java-sdk-secretsmanager</artifactId>
+            <version>1.12.246</version>
+        </dependency>
+
         <!-- AWS Lambda Java Events Library for API Gateway events -->
         <dependency>
             <groupId>com.amazonaws</groupId>
@@ -82,6 +89,13 @@
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-databind</artifactId>
             <version>2.12.3</version> <!-- or any version compatible with your project -->
+        </dependency>
+
+        <!-- JDBC Driver for PostgreSQL -->
+        <dependency>
+            <groupId>org.postgresql</groupId>
+            <artifactId>postgresql</artifactId>
+            <version>42.2.18</version>
         </dependency>
     </dependencies>
 

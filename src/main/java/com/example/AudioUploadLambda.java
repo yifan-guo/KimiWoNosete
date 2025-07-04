@@ -7,13 +7,23 @@ import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyResponseEvent
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.AmazonS3ClientBuilder;
 import com.amazonaws.services.s3.model.ObjectMetadata;
+import com.amazonaws.services.secretsmanager.*;
+import com.amazonaws.services.secretsmanager.model.*;
 import com.amazonaws.services.stepfunctions.AWSStepFunctions;
 import com.amazonaws.services.stepfunctions.AWSStepFunctionsClientBuilder;
 import com.amazonaws.services.stepfunctions.model.StartExecutionRequest;
 import com.amazonaws.services.stepfunctions.model.StartExecutionResult;
 import org.apache.commons.fileupload.MultipartStream;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.JsonNode;
 import java.util.HashMap;
+
+import java.sql.*;
+import java.time.Instant;
+import java.util.*;
+import java.io.*;
+import java.nio.charset.StandardCharsets;
+import java.util.Base64;
 
 import java.util.Arrays;
 import java.io.IOException;
@@ -30,6 +40,10 @@ public class AudioUploadLambda implements RequestHandler<APIGatewayProxyRequestE
     private static final String BUCKET_NAME = "python-lilypond-bucket"; // Replace with your S3 bucket name
     private static final String STEP_FUNCTION_ARN = "arn:aws:states:us-east-2:105411766712:stateMachine:GeneratePDF-UploadAudio"; // Replace with your Step Function ARN
 
+    private static final String DB_SECRET_ID = "rds/sheetmusic/password";
+    private static final String DB_URL = "jdbc:postgresql://sheetmusic-db.cnwoaowq0gyw.us-east-2.rds.amazonaws.com:5432/postgres";
+    private static final String DB_USER = "postgres";
+
     private final AmazonS3 s3Client = AmazonS3ClientBuilder.defaultClient();
     private final AWSStepFunctions stepFunctionsClient = AWSStepFunctionsClientBuilder.defaultClient();
 
@@ -39,6 +53,15 @@ public class AudioUploadLambda implements RequestHandler<APIGatewayProxyRequestE
 
         try {
             System.out.println("Lambda triggered: Processing request...");
+
+            String awsRegion = System.getenv("AWS_REGION");
+            if (awsRegion != null) {
+            System.out.println("AWS Region: " + awsRegion);
+            } else {
+            System.out.println("AWS_REGION environment variable is not set.");
+            }
+
+            Instant startTime = Instant.now();
 
             Map<String, String> headers = event.getHeaders();
             System.out.println("📜 Request Headers:");
@@ -156,7 +179,14 @@ public class AudioUploadLambda implements RequestHandler<APIGatewayProxyRequestE
                 .withInput(jsonInput);
 
             StartExecutionResult result = stepFunctionsClient.startExecution(startExecutionRequest);
-            System.out.println("Step Function execution started: " + result.getExecutionArn());
+            String executionArn = result.getExecutionArn();
+            String jobId = executionArn.substring(executionArn.lastIndexOf(":") + 1);
+            System.out.println("Step Function execution started: " + executionArn);
+
+            // can't move the 
+            // db-write to a separate try block because the jobId comes from the step function result 
+            System.out.println("Inserting submission record in database: " + jobId);
+            insertSubmissionRecord(jobId, extractedAudio.length, Timestamp.from(startTime), awsRegion);
 
             // Return a success response
             response.setStatusCode(200);
@@ -172,10 +202,43 @@ public class AudioUploadLambda implements RequestHandler<APIGatewayProxyRequestE
             e.printStackTrace();
 
             response.setStatusCode(500);
-            response.setBody("Error uploading file: " + e.getMessage());
+            response.setBody("Error during execution: " + e.getMessage());
+        }
+            
+        return response;
+    }
+
+    private void insertSubmissionRecord(String submissionId, int inputSizeBytes, Timestamp createdAt, String awsRegion) throws Exception {
+        String password = getDbPasswordFromSecretsManager(awsRegion);
+        try (Connection conn = DriverManager.getConnection(DB_URL, DB_USER, password)) {
+            String sql = "INSERT INTO public.\"Submission\" (id, \"inputType\", \"inputSizeBytes\", \"createdAt\") VALUES (?, CAST(? AS \"InputType\"), ?, ?)";
+            try (PreparedStatement stmt = conn.prepareStatement(sql)) {
+                stmt.setString(1, submissionId);
+                stmt.setString(2, "AUDIO");
+                stmt.setInt(3, inputSizeBytes);
+                stmt.setTimestamp(4, createdAt);
+                stmt.executeUpdate();
+            }
+        }
+    }
+
+    private String getDbPasswordFromSecretsManager(String awsRegion) throws Exception {
+        AWSSecretsManager client = AWSSecretsManagerClientBuilder.standard()
+                .withRegion(awsRegion)
+                .build();
+
+        GetSecretValueRequest getSecretValueRequest = new GetSecretValueRequest().withSecretId(DB_SECRET_ID);
+        GetSecretValueResult getSecretValueResult = client.getSecretValue(getSecretValueRequest);
+
+        String secretString = getSecretValueResult.getSecretString();
+        ObjectMapper objectMapper = new ObjectMapper();
+        JsonNode secretJson = objectMapper.readTree(secretString);
+
+        if (!secretJson.has("password")) {
+            throw new RuntimeException("Password not found in secret");
         }
 
-        return response;
+        return secretJson.get("password").asText();
     }
 
     private String formatMultipartBody(String body) {
