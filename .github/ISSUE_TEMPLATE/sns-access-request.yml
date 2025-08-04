@@ -1,0 +1,28 @@
+name: "SNS Access Request"
+description: "Request cross-account subscription access to our SNS topic"
+title: "SNS Access Request - Webhook.fifo topic"
+labels:
+  - sns-access
+assignees:
+  - your-team
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Please provide your AWS Account ID to request access to our SNS topic.
+
+  - type: input
+    id: account_id
+    attributes:
+      label: "AWS Account ID"
+      description: "Enter your 12-digit AWS Account ID. This will be used to grant your account subscription permissions."
+      placeholder: "123456789012"
+    validations:
+      required: true
+
+  - type: textarea
+    id: justification
+    attributes:
+      label: "Justification / Notes"
+      description: "Optional: Provide context or justification for this access request."
