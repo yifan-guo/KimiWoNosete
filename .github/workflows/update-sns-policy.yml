@@ -1,0 +1,47 @@
+name: Grant SNS Subscription Access
+
+on:
+  issues:
+    types: [opened, edited]
+
+jobs:
+  grant-access:
+    if: contains(github.event.issue.title, 'SNS Access Request')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Extract AWS Account ID from Issue Body
+        id: parse
+        run: |
+          echo "CUSTOMER_ACCOUNT_ID=$(echo '${{ github.event.issue.body }}' | grep -oE '[0-9]{12}')" >> $GITHUB_ENV
+      
+      - name: Configure AWS Credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::105411766712:role/Github-Actions-Test-Role # assume via OIDC
+          aws-region: us-east-1
+      
+      - name: Generate Updated SNS Policy
+        run: |
+          cat > updated-policy.json <<EOF
+          {
+            "Version": "2012-10-17",
+            "Statement": [
+              {
+                "Sid": "AllowCrossAccountSNSSubscribe-${CUSTOMER_ACCOUNT_ID}",
+                "Effect": "Allow",
+                "Principal": {
+                  "AWS": "arn:aws:iam::${CUSTOMER_ACCOUNT_ID}:root"
+                },
+                "Action": "sns:Subscribe",
+                "Resource": "arn:aws:sns:us-east-1:105411766712:Webhook-Topic.fifo"
+              }
+            ]
+          }
+          EOF
+      
+      - name: Apply SNS Policy
+        run: |
+          aws sns set-topic-attributes \
+            --topic-arn arn:aws:sns:us-east-1:111111111111:MyTopic \
+            --attribute-name Policy \
+            --attribute-value file://updated-policy.json
