@@ -46,6 +46,6 @@ jobs:
       - name: Apply SNS Policy
         run: |
           aws sns set-topic-attributes \
-            --topic-arn arn:aws:sns:us-east-1:111111111111:MyTopic \
+            --topic-arn arn:aws:sns:us-east-1:105411766712:Webhook-Topic.fifo \
             --attribute-name Policy \
             --attribute-value file://updated-policy.json
