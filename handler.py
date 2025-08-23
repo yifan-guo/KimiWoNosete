@@ -69,7 +69,9 @@ def lambda_handler(event, context):
             })
         }
     
-    # Insert record into DynamoDB
+    # Step 6: Insert record into DynamoDB
+    youtube_url = body['youtube_url']
+    
     try:
         now = datetime.utcnow().isoformat()
 
