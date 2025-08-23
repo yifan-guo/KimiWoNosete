@@ -3,50 +3,17 @@ import boto3
 from botocore.exceptions import ClientError
 import uuid
 import os
-import psycopg2
 from datetime import datetime
 
 # Initialize the Step Functions client
 sfn_client = boto3.client('stepfunctions')
 
-# PostgreSQL connection settings (set these as Lambda environment variables)
-DB_HOST = 'sheetmusic-db.cnwoaowq0gyw.us-east-2.rds.amazonaws.com'
-DB_PORT = '5432'
-DB_NAME = 'postgres'
-DB_USER = 'postgres'
+# AWS Connection settings
 AWS_REGION = os.environ['AWS_REGION']
 
-def get_db_password_from_sm():
-    secret_name = "rds/sheetmusic/password"
-    region_name = AWS_REGION
-
-    session = boto3.session.Session()
-    client = session.client(
-        service_name='secretsmanager',
-        region_name = region_name
-    )
-
-    try:
-        response = client.get_secret_value(
-            SecretId=secret_name
-        )
-    except ClientError as e:
-        # For a list of exceptions thrown, see
-        # https://docs.aws.amazon.com/secretsmanager/latest/apireference/API_GetSecretValue.html
-        print(f"Unexpected error getting secret from Secrets Manager: {str(e)}")
-        raise e
-
-    try: 
-        secret_payload = json.loads(response['SecretString'])
-
-    except (KeyError, json.JSONDecodeError) as e:
-        print(f"Error parsing JSON body: {str(e)}")
-        return {
-            'statusCode': 500,
-            'body': json.dumps({'error': f'Error parsing secret from SM: {str(e)}'})
-        }
-
-    return secret_payload['password']
+# Initialize the DynamoDB client
+dynamodb = boto3.resource('dynamodb', region_name=AWS_REGION) 
+table = dynamodb.Table('SubmissionsTable')
 
 def lambda_handler(event, context):
     # Log the incoming event for debugging
@@ -101,29 +68,24 @@ def lambda_handler(event, context):
                 'message': str(e)
             })
         }
-
-    DB_PASSWORD = get_db_password_from_sm() # TODO move this to cold start
     
-    # Insert record into PostgreSQL RDS
+    # Insert record into DynamoDB
     try:
-        conn = psycopg2.connect(
-            host=DB_HOST,
-            port=DB_PORT,
-            dbname=DB_NAME,
-            user=DB_USER,
-            password=DB_PASSWORD
-        )
-        cursor = conn.cursor()
+        now = datetime.utcnow().isoformat()
 
-        insert_query = """
-        INSERT INTO public."Submission" (id, "inputType", "inputUrl", "createdAt")
-        VALUES (%s, %s, %s, %s)
-        """
-        cursor.execute(insert_query, (job_id, 'URL', body['youtube_url'], datetime.utcnow()))
-        conn.commit()
+        item = {
+            'PK': f'SUBMISSION#{job_id}',
+            'SK': 'DETAILS',
+            'entity': 'Submission',
+            'submissionId': job_id,
+            'inputType': 'URL',
+            'inputUrl': youtube_url,
+            'createdAt': now
+        }
 
-        cursor.close()
-        conn.close()
+        table.put_item(Item=item)
+        print("Submission inserted successfully.")
+
     except Exception as db_err:
         print(f"Database insert failed: {str(db_err)}")
 
