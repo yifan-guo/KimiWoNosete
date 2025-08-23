@@ -7,8 +7,6 @@ import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyResponseEvent
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.AmazonS3ClientBuilder;
 import com.amazonaws.services.s3.model.ObjectMetadata;
-import com.amazonaws.services.secretsmanager.*;
-import com.amazonaws.services.secretsmanager.model.*;
 import com.amazonaws.services.stepfunctions.AWSStepFunctions;
 import com.amazonaws.services.stepfunctions.AWSStepFunctionsClientBuilder;
 import com.amazonaws.services.stepfunctions.model.StartExecutionRequest;
@@ -17,6 +15,11 @@ import org.apache.commons.fileupload.MultipartStream;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.JsonNode;
 import java.util.HashMap;
+
+import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
+import software.amazon.awssdk.services.dynamodb.model.PutItemRequest;
+import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
+import java.sql.Timestamp;
 
 import java.sql.*;
 import java.time.Instant;
@@ -39,10 +42,6 @@ public class AudioUploadLambda implements RequestHandler<APIGatewayProxyRequestE
 
     private static final String BUCKET_NAME = "python-lilypond-bucket"; // Replace with your S3 bucket name
     private static final String STEP_FUNCTION_ARN = "arn:aws:states:us-east-2:105411766712:stateMachine:GeneratePDF-UploadAudio"; // Replace with your Step Function ARN
-
-    private static final String DB_SECRET_ID = "rds/sheetmusic/password";
-    private static final String DB_URL = "jdbc:postgresql://sheetmusic-db.cnwoaowq0gyw.us-east-2.rds.amazonaws.com:5432/postgres";
-    private static final String DB_USER = "postgres";
 
     private final AmazonS3 s3Client = AmazonS3ClientBuilder.defaultClient();
     private final AWSStepFunctions stepFunctionsClient = AWSStepFunctionsClientBuilder.defaultClient();
@@ -208,37 +207,34 @@ public class AudioUploadLambda implements RequestHandler<APIGatewayProxyRequestE
         return response;
     }
 
-    private void insertSubmissionRecord(String submissionId, int inputSizeBytes, Timestamp createdAt, String awsRegion) throws Exception {
-        String password = getDbPasswordFromSecretsManager(awsRegion);
-        try (Connection conn = DriverManager.getConnection(DB_URL, DB_USER, password)) {
-            String sql = "INSERT INTO public.\"Submission\" (id, \"inputType\", \"inputSizeBytes\", \"createdAt\") VALUES (?, CAST(? AS \"InputType\"), ?, ?)";
-            try (PreparedStatement stmt = conn.prepareStatement(sql)) {
-                stmt.setString(1, submissionId);
-                stmt.setString(2, "AUDIO");
-                stmt.setInt(3, inputSizeBytes);
-                stmt.setTimestamp(4, createdAt);
-                stmt.executeUpdate();
-            }
+    public void insertSubmissionRecord(String submissionId, int inputSizeBytes, Timestamp createdAt, String awsRegion) throws Exception {
+        DynamoDbClient dynamoDb = DynamoDbClient.builder()
+            .region(software.amazon.awssdk.regions.Region.of(awsRegion))
+            .build();
+
+        String tableName = "SubmissionsTable"; // replace with your actual table name
+
+        Map<String, AttributeValue> item = new HashMap<>();
+        item.put("PK", AttributeValue.fromS("SUBMISSION#" + submissionId));
+        item.put("SK", AttributeValue.fromS("DETAILS"));
+        item.put("entity", AttributeValue.fromS("Submission"));
+        item.put("submissionId", AttributeValue.fromS(submissionId));
+        item.put("inputType", AttributeValue.fromS("AUDIO"));
+        item.put("inputSizeBytes", AttributeValue.fromN(String.valueOf(inputSizeBytes)));
+        item.put("createdAt", AttributeValue.fromS(createdAt.toInstant().toString()));
+
+        PutItemRequest request = PutItemRequest.builder()
+            .tableName(tableName)
+            .item(item)
+            .build();
+
+        try {
+            dynamoDb.putItem(request);
+            System.out.println("Submission inserted successfully into DynamoDB.");
+        } catch (Exception e) {
+            System.err.println("DynamoDB insert failed: " + e.getMessage());
+            throw e;
         }
-    }
-
-    private String getDbPasswordFromSecretsManager(String awsRegion) throws Exception {
-        AWSSecretsManager client = AWSSecretsManagerClientBuilder.standard()
-                .withRegion(awsRegion)
-                .build();
-
-        GetSecretValueRequest getSecretValueRequest = new GetSecretValueRequest().withSecretId(DB_SECRET_ID);
-        GetSecretValueResult getSecretValueResult = client.getSecretValue(getSecretValueRequest);
-
-        String secretString = getSecretValueResult.getSecretString();
-        ObjectMapper objectMapper = new ObjectMapper();
-        JsonNode secretJson = objectMapper.readTree(secretString);
-
-        if (!secretJson.has("password")) {
-            throw new RuntimeException("Password not found in secret");
-        }
-
-        return secretJson.get("password").asText();
     }
 
     private String formatMultipartBody(String body) {

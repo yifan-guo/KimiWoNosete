@@ -34,11 +34,18 @@
             <version>1.12.246</version>
         </dependency>
 
-        <!-- AWS SDK: Secrets Manager -->
+        <!-- AWS SDK for DynamoDB -->
         <dependency>
-            <groupId>com.amazonaws</groupId>
-            <artifactId>aws-java-sdk-secretsmanager</artifactId>
-            <version>1.12.246</version>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>dynamodb</artifactId>
+            <version>2.25.4</version> <!-- or latest -->
+        </dependency>
+
+        <!-- AWS SDK for Regions -->
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>regions</artifactId>
+             <version>2.25.4</version>
         </dependency>
 
         <!-- AWS Lambda Java Events Library for API Gateway events -->
@@ -89,13 +96,6 @@
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-databind</artifactId>
             <version>2.12.3</version> <!-- or any version compatible with your project -->
-        </dependency>
-
-        <!-- JDBC Driver for PostgreSQL -->
-        <dependency>
-            <groupId>org.postgresql</groupId>
-            <artifactId>postgresql</artifactId>
-            <version>42.2.18</version>
         </dependency>
     </dependencies>
 
