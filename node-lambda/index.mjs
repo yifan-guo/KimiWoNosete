@@ -3,61 +3,30 @@
 import apn from 'apn'; // Importing the APN module
 import AWS from 'aws-sdk'; // Importing the AWS SDK for S3
 import fs from 'fs'; // For writing the APNs key to the /tmp directory
-import pkg from 'pg';
 import { v4 as uuidv4 } from 'uuid';
+import {
+  DynamoDBClient,
+  GetItemCommand,
+  PutItemCommand
+} from '@aws-sdk/client-dynamodb';
+
+// DynamoDB details where the submission result is recorded
+const AWS_REGION = process.env.AWS_REGION;
+const dynamoClient = new DynamoDBClient({ region: AWS_REGION });
+const tableName = 'SubmissionsTable';
 
 // Replace with your own APNs key details from Apple Developer Portal
 const APNS_KEY_ID = 'T236YGCUT2';  // Key ID from Apple Developer Portal
 const APNS_TEAM_ID = '78Z85K7J98'; // Your Team ID
 const APNS_BUNDLE_ID = 'gh-yifan.SheetOfMusic'; // Your app's bundle ID
 
+// S3 details where APN key is stored
 const BUCKET_NAME = 'python-lilypond-bucket';
 const KEY_NAME = 'AuthKey_T236YGCUT2.p8';
 
 // Endpoint URL
 // const APNS_SERVER = 'https://api.sandbox.push.apple.com:443';  // Use the sandbox URL for development, replace with production URL when ready
 const APNS_SERVER = 'https://api.push.apple.com:443'
-
-const AWS_REGION = process.env.AWS_REGION;
-const { Pool } = pkg;
-
-const DB_SECRET_ID = 'rds/sheetmusic/password';
-const DB_CONFIG = {
-  host: 'sheetmusic-db.cnwoaowq0gyw.us-east-2.rds.amazonaws.com',
-  port: 5432,
-  user: 'postgres',
-  database: 'postgres',
-  ssl: { rejectUnauthorized: false }
-};
-
-async function getDbPasswordFromSecretsManager() {
-    const client = new AWS.SecretsManager({ region: AWS_REGION });
-
-    try {
-        const response = await client.getSecretValue({ SecretId: DB_SECRET_ID }).promise();
-
-        let secret;
-        if ('SecretString' in response) {
-            secret = response.SecretString;
-        } else {
-            // If the secret is stored as binary
-            const buff = Buffer.from(response.SecretBinary, 'base64');
-            secret = buff.toString('ascii');
-        }
-
-        const secretPayload = JSON.parse(secret);
-
-        if (!secretPayload.password) {
-            throw new Error('Password not found in secret');
-        }
-
-        return secretPayload.password;
-
-    } catch (err) {
-        console.error(`Error retrieving secret '${DB_SECRET_ID}': ${err.message}`);
-        throw err;
-    }
-}
 
 // Create a function to download APNs key from S3
 async function getApnsKeyFromS3(bucketName, keyName) {
@@ -117,43 +86,53 @@ async function sendPushNotification(apnsKeyPath, deviceToken, title, body, userI
 
 
 async function recordSubmissionToDatabase(submissionId, presignedUrl) {
-  const password = await getDbPasswordFromSecretsManager();
-
-  const pool = new Pool({
-    ...DB_CONFIG,
-    password
-  });
-
-  const client = await pool.connect();
-
   try {
-    const resultId = uuidv4(); // Generates a unique ID
+    // Step 1: Get the Submission to find createdAt
+    const getSubmission = new GetItemCommand({
+        TableName: tableName,
+        Key: {
+        PK: { S: `SUBMISSION#${submissionId}` },
+        SK: { S: 'DETAILS' }
+        },
+        ProjectionExpression: 'createdAt'
+    });
 
-    const res = await client.query(
-        'SELECT "createdAt" FROM public."Submission" WHERE id = $1',
-        [submissionId]
-    );
+    const res = await dynamoClient.send(getSubmission);
 
-    if (res.rows.length == 0) {
-        console.warn('Submission with id ${submissionId} not found');
+    if (!res.Item) {
+        console.warn(`Submission with id ${submissionId} not found`);
         return;
     }
-    
+        
     // calculate the running time for this submission
-    const createdAt = new Date(res.rows[0].createdAt);
+    const createdAt = new Date(res.Item.createdAt.S);
     const now = new Date()
     const processingTimeMs = now.getTime() - createdAt.getTime()
 
-    await client.query(`
-      INSERT INTO public."Result" (id, "submissionId", "sheetMusicUrl", "generatedAt", "status", "errorMessage", "processingMs")
-      VALUES ( $1, $2, $3, NOW(), 'COMPLETED', $4, $5)
-    `, [resultId, submissionId, presignedUrl, '', processingTimeMs]);
+     // Step 2: Insert Result
+    const resultId = uuidv4(); // Generates a unique ID
+
+    const putResult = new PutItemCommand({
+        TableName: tableName,
+        Item: {
+        PK: { S: `SUBMISSION#${submissionId}` },
+        SK: { S: 'RESULT' },
+        entity: { S: 'Result' },
+        id: { S: resultId },
+        submissionId: { S: submissionId },
+        sheetMusicUrl: { S: presignedUrl },
+        generatedAt: { S: now.toISOString() },
+        status: { S: 'COMPLETED' },
+        errorMessage: { S: '' },
+        processingMs: { N: processingTimeMs.toString() }
+        }
+    });
+
+    await dynamoClient.send(putResult);
 
     console.log(`Success recorded in DB for submission ${submissionId}`);
   } catch (err) {
     console.error('Database insert failed:', err);
-  } finally {
-    client.release();
   }
 }
 
@@ -214,8 +193,8 @@ export const handler = async (event, context) => {
         };
     }
     // Log the extracted values
-    console.log(`Extracted presigned URL: ${presignedUrl}`);
-    console.log(`Extracted deviceToken: ${deviceToken}`);
+    // console.log(`Extracted presigned URL: ${presignedUrl}`);
+    // console.log(`Extracted deviceToken: ${deviceToken}`);
     
     // Example: Fetch APNs key from S3
     console.log(`Fetching APNs key from S3. Bucket: ${BUCKET_NAME}, Key: ${KEY_NAME}`);
