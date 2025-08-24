@@ -76,6 +76,8 @@ Invoke the Lambda and confirm the response is:
 }
 ```
 
+## Remote Testing (iPhone 7)
+My iPhone7 device token is configured to receive push notifications from the sandbox APN server. To receive push notifications on that device, toggle the development APN server (and the isProduction flag to true).
 
 ## Step function definition
 
